@@ -23,6 +23,6 @@
     "puppeteer": "^22.0.0"
   },
   "devDependencies": {
-    "pkg": "^5.9.0"
+    "pkg": "^5.8.1"
   }
 }
