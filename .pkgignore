@@ -1,0 +1,29 @@
+# GitHub
+.github
+
+# Documentation
+docs/
+*.md
+!package.json
+
+# Scripts (users provide their own)
+scripts/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+output/
+*.log
+
+# Node (will be bundled)
+node_modules/
+
+# Temp
+tmp/
+temp/

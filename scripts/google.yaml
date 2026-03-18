@@ -1,0 +1,21 @@
+meta:
+  name: "google-example"
+  logs: "./output/script.log"
+
+vars:
+  BASE_URL: "https://google.com"
+  SEARCH_TERM: "puppeteer testing"
+
+open: ${BASE_URL}
+
+actions:
+  - log: "Starting automation..."
+
+  - screenshot: "./output/homepage.png"
+
+  - wait: "#APjFqb"
+
+  - log: "Page loaded"
+
+  - type: ${BASE_URL}
+  - log: "Automation complete"

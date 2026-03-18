@@ -1,0 +1,40 @@
+meta:
+  name: "example-script"
+  logs: "./output/script.log"
+
+vars:
+  BASE_URL: "https://example.com"
+  SEARCH_TERM: "puppeteer testing"
+
+open: ${BASE_URL}
+
+actions:
+  - log: "Starting automation..."
+
+  - screenshot: "./output/homepage.png"
+
+  - wait: 2000
+
+  - log: "Page loaded"
+
+  - for:
+      items:
+        - "news"
+        - "about"
+        - "contact"
+      as: page_name
+      actions:
+        - log: "Would check ${page_name} page"
+        - wait: 500
+
+  - repeat:
+      times: 2
+      delay: 500
+      actions:
+        - log: "Repeating action..."
+
+  - screenshot:
+      path: "./output/final.png"
+      fullPage: true
+
+  - log: "Automation complete"
