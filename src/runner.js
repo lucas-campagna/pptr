@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const Logger = require('./logger');
 const Parser = require('./parser');
 const VariableEngine = require('./variables');
@@ -14,66 +15,109 @@ class Runner {
       timeout: options.timeout || 30000,
       logPath: options.logPath,
       vars: options.vars || {},
+      version: options.version || '1.0.0',
       ...options,
     };
   }
 
-  findBundledChrome() {
-    const exePath = process.execPath;
-    const exeDir = path.dirname(exePath);
-    
-    const chromePaths = [
-      path.join(exeDir, 'chrome', 'chrome'),
-      path.join(exeDir, '..', 'chrome', 'chrome'),
-      path.join(exeDir, 'chrome', 'chrome-linux64', 'chrome'),
-      path.join(exeDir, 'pptr', 'chrome', 'chrome'),
-    ];
-
-    for (const chromePath of chromePaths) {
-      if (fs.existsSync(chromePath)) {
-        return chromePath;
-      }
-    }
-
-    const possibleDirs = [
-      exeDir,
-      path.join(exeDir, '..'),
-      path.join(exeDir, 'dist'),
-      path.join(exeDir, 'release'),
-    ];
-
-    for (const dir of possibleDirs) {
-      const chromeBin = path.join(dir, 'chrome', 'chrome');
-      if (fs.existsSync(chromeBin)) {
-        return chromeBin;
-      }
-      
-      const chromeLinuxDir = path.join(dir, 'chrome', 'chrome-linux64');
-      if (fs.existsSync(chromeLinuxDir)) {
-        const chrome = path.join(chromeLinuxDir, 'chrome');
-        if (fs.existsSync(chrome)) {
-          return chrome;
-        }
-      }
-    }
-
-    return null;
+  getVersion() {
+    return this.options.version || '1.0.0';
   }
 
-  setupChromeEnvironment() {
-    const chromePath = this.findBundledChrome();
-    if (chromePath) {
-      const chromeDir = path.dirname(chromePath);
-      process.env.PUPPETEER_EXECUTABLE_PATH = chromePath;
-      process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = 'true';
-      if (process.env.LD_LIBRARY_PATH) {
-        process.env.LD_LIBRARY_PATH = `${chromeDir}:${process.env.LD_LIBRARY_PATH}`;
-      } else {
-        process.env.LD_LIBRARY_PATH = chromeDir;
-      }
-      return chromePath;
+  getDepsDir() {
+    return `/tmp/pptr-${this.getVersion()}`;
+  }
+
+  getChromeDir() {
+    return path.join(this.getDepsDir(), 'chrome');
+  }
+
+  async ensureDependencies(logger) {
+    const depsDir = this.getDepsDir();
+    const chromeDir = this.getChromeDir();
+
+    if (fs.existsSync(chromeDir)) {
+      logger.info(`Using cached dependencies from ${depsDir}`);
+      return chromeDir;
     }
-    return null;
+
+    logger.info(`Downloading dependencies for v${this.getVersion()}...`);
+
+    fs.mkdirSync(depsDir, { recursive: true });
+
+    const tarball = path.join(depsDir, 'deps.tar.gz');
+    const url = `https://github.com/lucas-campagna/pptr/releases/download/v${this.getVersion()}/deps.tar.gz`;
+
+    await this.downloadWithProgress(url, tarball, logger);
+
+    logger.info('Extracting dependencies...');
+    await this.extractTarGz(tarball, depsDir, logger);
+
+    try {
+      fs.unlinkSync(tarball);
+    } catch (e) {}
+
+    logger.info('Dependencies ready');
+    return chromeDir;
+  }
+
+  async downloadWithProgress(url, dest, logger) {
+    const https = require('https');
+    const http = require('http');
+    const { URL } = require('url');
+
+    return new Promise((resolve, reject) => {
+      const urlObj = new URL(url);
+      const client = urlObj.protocol === 'https:' ? https : http;
+
+      const request = client.get(urlObj, (response) => {
+        if (response.statusCode === 302 || response.statusCode === 301) {
+          const redirectUrl = response.headers.location;
+          logger.info(`Following redirect to ${redirectUrl}`);
+          return this.downloadWithProgress(redirectUrl, dest, logger).then(resolve).catch(reject);
+        }
+
+        if (response.statusCode !== 200) {
+          return reject(new Error(`Failed to download: ${response.statusCode}`));
+        }
+
+        const total = parseInt(response.headers['content-length'], 10);
+        let downloaded = 0;
+
+        const file = fs.createWriteStream(dest);
+
+        response.on('data', (chunk) => {
+          downloaded += chunk.length;
+          if (total > 0) {
+            const percent = ((downloaded / total) * 100).toFixed(1);
+            process.stdout.write(`\rDownloading... ${percent}%`);
+          }
+        });
+
+        file.on('finish', () => {
+          process.stdout.write('\n');
+          resolve();
+        });
+
+        file.on('error', reject);
+        response.on('error', reject);
+
+        response.pipe(file);
+      });
+
+      request.on('error', reject);
+    });
+  }
+
+  async extractTarGz(tarball, dest) {
+    return new Promise((resolve, reject) => {
+      const tar = spawn('tar', ['-xzf', tarball, '-C', dest]);
+      tar.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`tar exited with code ${code}`));
+      });
+      tar.on('error', reject);
+    });
   }
 
   async run(scriptPath) {
@@ -86,22 +130,27 @@ class Runner {
     const logger = new Logger(logPath);
     logger.info('Initializing Puppeteer');
 
-    const browserArgs = ['--no-sandbox', '--disable-setuid-sandbox'];
+    const chromeDir = await this.ensureDependencies(logger);
+
+    const browserArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-software-rasterizer',
+      '--disable-dev-shm-usage',
+    ];
+
     if (meta.headless === false) {
       this.options.headless = false;
+    } else {
+      browserArgs.push('--headless=new');
     }
 
     const launchOptions = {
       headless: this.options.headless,
       slowMo: meta.slowMo || this.options.slowMo,
       args: browserArgs,
+      executablePath: path.join(chromeDir, 'chrome'),
     };
-
-    const bundledChrome = this.setupChromeEnvironment();
-    if (bundledChrome) {
-      logger.info(`Using bundled Chrome: ${bundledChrome}`);
-      launchOptions.executablePath = bundledChrome;
-    }
 
     const browser = await puppeteer.launch(launchOptions);
 
@@ -154,19 +203,27 @@ class Runner {
     const logger = new Logger(logPath);
     logger.info('Initializing Puppeteer');
 
-    const browserArgs = ['--no-sandbox', '--disable-setuid-sandbox'];
+    const chromeDir = await this.ensureDependencies(logger);
+
+    const browserArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-software-rasterizer',
+      '--disable-dev-shm-usage',
+    ];
+
+    if (meta.headless === false) {
+      this.options.headless = false;
+    } else {
+      browserArgs.push('--headless=new');
+    }
 
     const launchOptions = {
       headless: this.options.headless,
       slowMo: meta.slowMo || this.options.slowMo,
       args: browserArgs,
+      executablePath: path.join(chromeDir, 'chrome'),
     };
-
-    const bundledChrome = this.setupChromeEnvironment();
-    if (bundledChrome) {
-      logger.info(`Using bundled Chrome: ${bundledChrome}`);
-      launchOptions.executablePath = bundledChrome;
-    }
 
     const browser = await puppeteer.launch(launchOptions);
 

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
 const path = require('path');
+const fs = require('fs');
 const Runner = require('./runner');
 
 const args = process.argv.slice(2);
 
 if (args.length === 0) {
-  console.error('Usage: puppeteer-run <script.yaml> [options]');
+  console.error('Usage: pptr <script.yaml> [options]');
   console.error('');
   console.error('Options:');
   console.error('  --headless         Run in headless mode (default: true)');
@@ -17,11 +18,14 @@ if (args.length === 0) {
   process.exit(1);
 }
 
+const version = process.env.PPTR_VERSION || require('../package.json').version || '1.0.0';
+
 const scriptPath = path.resolve(args[0]);
 const options = {
   headless: true,
   logPath: null,
   vars: {},
+  version: version,
 };
 
 for (let i = 1; i < args.length; i++) {
