@@ -38,6 +38,7 @@ jobs:
             -v ${{ github.workspace }}:/app \
             -w /app \
             -e PKG_CACHE_PATH=/app/.pkg-cache \
+            --user root \
             ghcr.io/puppeteer/puppeteer:latest \
             /bin/bash -c "npm ci --include=dev && npx pkg . --targets node18-linux-x64 --output dist/pptr"
       
