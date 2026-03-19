@@ -17,10 +17,13 @@ class Parser {
       throw new Error('Empty script');
     }
 
+    this.functions = this.normalizeFunctions(doc.functions || {});
+
     const script = {
       meta: doc.meta || {},
       vars: doc.vars || {},
       open: doc.open || null,
+      functions: this.functions,
       actions: this.normalizeActions(doc.actions || []),
       tabs: this.normalizeTabs(doc.tabs || []),
     };
@@ -170,6 +173,13 @@ class Parser {
           return { type: 'continue' };
 
         default:
+          if (this.functions && this.functions[type]) {
+            return {
+              type: 'func',
+              name: type,
+              args: typeof value === 'object' && value !== null ? value : {},
+            };
+          }
           return { type, value };
       }
     }
@@ -245,6 +255,25 @@ class Parser {
       action: this.normalizeActions(value.action || []),
       catch: this.normalizeActions(value.catch || []),
     };
+  }
+
+  normalizeFunctions(functions) {
+    const result = {};
+    if (typeof functions !== 'object' || functions === null) {
+      return result;
+    }
+
+    for (const [name, def] of Object.entries(functions)) {
+      if (typeof def !== 'object' || def === null) {
+        continue;
+      }
+      result[name] = {
+        params: def.params || {},
+        actions: this.normalizeActions(def.actions || []),
+      };
+    }
+
+    return result;
   }
 
   normalizeTabs(tabs) {

@@ -11,6 +11,10 @@ class VariableEngine {
     return this.vars[name];
   }
 
+  delete(name) {
+    delete this.vars[name];
+  }
+
   getAll() {
     return { ...this.vars };
   }

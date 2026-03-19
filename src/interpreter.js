@@ -8,6 +8,7 @@ class Interpreter {
     this.logger = options.logger || new Logger(options.logPath);
     this.pages = [];
     this.currentIndex = 0;
+    this.functions = {};
   }
 
   async delay(ms) {
@@ -156,6 +157,8 @@ class Interpreter {
       });
       this.vars = new VariableEngine(this.vars.interpolateDeep(script.vars));
     }
+
+    this.functions = script.functions || {};
 
     let page;
     if (script.open) {
@@ -315,6 +318,14 @@ class Interpreter {
 
       case 'continue':
         throw new Error('CONTINUE');
+
+      case 'func':
+        await this.handleFunc(page, action);
+        break;
+
+      case 'return':
+        this.vars.set('$result', action.value);
+        throw new Error('RETURN');
 
       default:
         this.logger.warn(`Unknown action type: ${action.type}`);
@@ -625,6 +636,45 @@ class Interpreter {
       fs.writeFileSync(path, content);
     }
     this.logger.info(`Wrote to file: ${path}`);
+  }
+
+  async handleFunc(page, action) {
+    const funcName = action.name;
+    const func = this.functions[funcName];
+
+    if (!func) {
+      this.logger.warn(`Function not found: ${funcName}`);
+      return;
+    }
+
+    const params = func.params || {};
+    const providedArgs = action.args || {};
+
+    const savedVars = { ...this.vars.getAll() };
+
+    const paramKeys = Object.keys(params);
+    for (const key of paramKeys) {
+      const value = providedArgs[key] !== undefined ? providedArgs[key] : params[key];
+      this.vars.set(key, value);
+    }
+
+    try {
+      await this.executeActions(page, func.actions);
+    } catch (e) {
+      if (e.message === 'RETURN') {
+        // Expected, function returned
+      } else {
+        throw e;
+      }
+    } finally {
+      for (const key of paramKeys) {
+        if (savedVars.hasOwnProperty(key)) {
+          this.vars.set(key, savedVars[key]);
+        } else {
+          this.vars.delete(key);
+        }
+      }
+    }
   }
 }
 
