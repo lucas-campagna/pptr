@@ -18,7 +18,7 @@ jobs:
 
       - run: npm ci --include=dev
 
-      - run: npx pkg . --output dist/pptr --options v${{ github.ref_name }}
+      - run: npx pkg . --output dist/pptr
 
       - uses: actions/upload-artifact@v4
         with:

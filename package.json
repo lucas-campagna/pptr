@@ -10,6 +10,9 @@
     "scripts": [
       "src/**/*.js"
     ],
+    "assets": [
+      "package.json"
+    ],
     "targets": [
       "node18-linux-x64"
     ],
