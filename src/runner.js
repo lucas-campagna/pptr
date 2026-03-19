@@ -137,6 +137,8 @@ class Runner {
       '--disable-setuid-sandbox',
       '--disable-software-rasterizer',
       '--disable-dev-shm-usage',
+      '--no-zygote',
+      '--disable-gpu',
     ];
 
     if (meta.headless === false) {
@@ -214,6 +216,8 @@ class Runner {
       '--disable-setuid-sandbox',
       '--disable-software-rasterizer',
       '--disable-dev-shm-usage',
+      '--no-zygote',
+      '--disable-gpu',
     ];
 
     if (meta.headless === false) {
