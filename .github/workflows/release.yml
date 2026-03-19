@@ -37,16 +37,40 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}:/app \
             -w /app \
+            -e PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
             -e PKG_CACHE_PATH=/app/.pkg-cache \
             --user root \
             ghcr.io/puppeteer/puppeteer:latest \
-            /bin/bash -c "npm ci --include=dev && npx pkg . --targets node18-linux-x64 --output dist/pptr"
+            /bin/bash -c "
+              npm ci --include=dev && \
+              npx pkg . --targets node18-linux-x64 --output dist/pptr && \
+              mkdir -p dist/chrome && \
+              cp -r /home/pptruser/.cache/puppeteer/chrome/*/chrome-linux/* dist/chrome/ && \
+              cp -r /usr/lib/x86_64-linux-gnu/libnss3* dist/chrome/ 2>/dev/null || true && \
+              cp -r /usr/lib/x86_64-linux-gnu/libnspr4* dist/chrome/ 2>/dev/null || true && \
+              cp -r /usr/lib/x86_64-linux-gnu/libatk* dist/chrome/ 2>/dev/null || true && \
+              cp -r /usr/lib/x86_64-linux-gnu/libatspi* dist/chrome/ 2>/dev/null || true && \
+              cp -r /usr/lib/x86_64-linux-gnu/libdrm* dist/chrome/ 2>/dev/null || true && \
+              cp -r /usr/lib/x86_64-linux-gnu/libxkbcommon* dist/chrome/ 2>/dev/null || true && \
+              cp -r /usr/lib/x86_64-linux-gnu/libwayland* dist/chrome/ 2>/dev/null || true && \
+              cp -r /usr/lib/x86_64-linux-gnu/libpango* dist/chrome/ 2>/dev/null || true && \
+              cp -r /usr/lib/x86_64-linux-gnu/libcairo* dist/chrome/ 2>/dev/null || true && \
+              cp -r /usr/lib/x86_64-linux-gnu/libgbm* dist/chrome/ 2>/dev/null || true
+            "
+      
+      - name: Set Chrome path
+        run: |
+          CHROME_PATH=$(find dist/chrome -name chrome -type f | head -1)
+          echo "CHROME_PATH=$CHROME_PATH"
+          echo "CHROME_PATH=$CHROME_PATH" >> $GITHUB_ENV
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pptr
-          path: dist/pptr
+          path: |
+            dist/pptr
+            dist/chrome
           retention-days: 5
 
   release:
@@ -63,12 +87,14 @@ jobs:
           path: dist
       
       - name: Make executable
-        run: chmod +x dist/pptr
+        run: chmod +x dist/pptr && chmod -R 755 dist/chrome
       
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/pptr
+          files: |
+            dist/pptr
+            dist/chrome/**
           generate_release_notes: true
           make_latest: true
         env:
