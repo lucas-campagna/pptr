@@ -12,18 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      
-      - run: npm ci
-      
-      - name: Install Chrome
-        run: npx @puppeteer/browsers install chrome@stable
-        
-      - name: Run tests
-        run: npm test
+      - name: Run tests in Docker
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/app \
+            -w /app \
+            --user root \
+            ghcr.io/puppeteer/puppeteer:latest \
+            /bin/bash -c "npm ci && npm test"
 
   build:
     name: Build
