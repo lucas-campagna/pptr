@@ -11,45 +11,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Build executable and package deps in Docker
-        run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/app \
-            -w /app \
-            -e PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-            -e PKG_CACHE_PATH=/app/.pkg-cache \
-            --user root \
-            ghcr.io/puppeteer/puppeteer:latest \
-            /bin/bash -c '
-              npm ci --include=dev && \
-              npx pkg . --targets node18-linux-x64 --output dist/pptr --options v${{ github.ref_name }} && \
-              mkdir -p dist/deps && \
-              cp dist/pptr dist/deps/pptr && \
-              mkdir -p dist/deps/chrome && \
-              cp -r /home/pptruser/.cache/puppeteer/chrome/*/chrome-linux/* dist/deps/chrome/ && \
-              for lib in libnss3 libnspr4 libatk libatspi libdrm libxkbcommon libwayland libpango libcairo libgbm; do
-                cp -r /usr/lib/x86_64-linux-gnu/${lib}* dist/deps/chrome/ 2>/dev/null || true
-              done && \
-              cd dist/deps && tar -czf ../deps.tar.gz * && \
-              cd .. && rm -rf deps && \
-              chmod 644 deps.tar.gz && \
-              chmod 755 pptr && \
-              ls -la
-            '
-      
-      - name: Upload executable artifact
-        uses: actions/upload-artifact@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - run: npm ci --include=dev
+
+      - run: npx pkg . --output dist/pptr --options v${{ github.ref_name }}
+
+      - uses: actions/upload-artifact@v4
         with:
           name: pptr
           path: dist/pptr
-          retention-days: 5
-      
-      - name: Upload deps artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: deps
-          path: dist/deps.tar.gz
           retention-days: 5
 
   release:
@@ -59,24 +33,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download executable
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: pptr
           path: dist
-      
-      - name: Download deps
-        uses: actions/download-artifact@v4
+
+      - uses: softprops/action-gh-release@v2
         with:
-          name: deps
-          path: dist
-      
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/pptr
-            dist/deps.tar.gz
+          files: dist/pptr
           generate_release_notes: true
           make_latest: true
         env:

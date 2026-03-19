@@ -25,7 +25,7 @@ class Runner {
   }
 
   getDepsDir() {
-    return `/tmp/pptr-${this.getVersion()}`;
+    return `/tmp/pptr-deps`;
   }
 
   getChromeDir() {
@@ -46,7 +46,7 @@ class Runner {
     fs.mkdirSync(depsDir, { recursive: true });
 
     const tarball = path.join(depsDir, 'deps.tar.gz');
-    const url = `https://github.com/lucas-campagna/pptr/releases/download/v${this.getVersion()}/deps.tar.gz`;
+    const url = `https://github.com/lucas-campagna/pptr/releases/download/base-deps/deps.tar.gz`;
 
     await this.downloadWithProgress(url, tarball, logger);
 

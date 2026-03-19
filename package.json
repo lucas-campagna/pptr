@@ -1,20 +1,32 @@
 {
   "name": "pptr",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "YAML-based Puppeteer automation script runner - standalone executable",
   "main": "src/index.js",
   "bin": {
     "pptr": "./src/cli.js"
   },
+  "pkg": {
+    "scripts": [
+      "src/**/*.js"
+    ],
+    "targets": [
+      "node18-linux-x64"
+    ],
+    "outputPath": "dist"
+  },
   "scripts": {
     "start": "node src/cli.js",
     "test": "node src/cli.js scripts/example.yaml",
-    "build:linux": "pkg . --targets node22-linux-x64 --output dist/pptr",
-    "build:macos": "pkg . --targets node22-macos-x64 --output dist/pptr",
-    "build:win": "pkg . --targets node22-win-x64 --output dist/pptr.exe",
-    "build": "pkg . --targets node22-linux-x64,node22-macos-x64,node22-win-x64 -o dist"
+    "build": "pkg . --targets node18-linux-x64 --output dist/pptr"
   },
-  "keywords": ["puppeteer", "yaml", "automation", "browser", "cli"],
+  "keywords": [
+    "puppeteer",
+    "yaml",
+    "automation",
+    "browser",
+    "cli"
+  ],
   "author": "Lucas Campagna",
   "license": "ISC",
   "type": "commonjs",
