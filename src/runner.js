@@ -41,24 +41,73 @@ class Runner {
       return chromeDir;
     }
 
-    logger.info(`Downloading dependencies for v${this.getVersion()}...`);
+    try {
+      logger.info(`Downloading dependencies for v${this.getVersion()}...`);
 
-    fs.mkdirSync(depsDir, { recursive: true });
+      fs.mkdirSync(depsDir, { recursive: true });
 
-    const tarball = path.join(depsDir, 'deps.tar.gz');
-    const url = `https://github.com/lucas-campagna/pptr/releases/download/v${this.getVersion()}/deps.tar.gz`;
+      const tarball = path.join(depsDir, 'deps.tar.gz');
+      const url = `https://github.com/lucas-campagna/pptr/releases/download/v${this.getVersion()}/deps.tar.gz`;
 
-    await this.downloadWithProgress(url, tarball, logger);
+      await this.downloadWithProgress(url, tarball, logger);
 
-    logger.info('Extracting dependencies...');
-    await this.extractTarGz(tarball, depsDir, logger);
+      logger.info('Extracting dependencies...');
+      await this.extractTarGz(tarball, depsDir, logger);
+
+      try {
+        fs.unlinkSync(tarball);
+      } catch (e) {}
+
+      logger.info('Dependencies ready');
+      return chromeDir;
+    } catch (e) {
+      logger.info(`Could not download deps: ${e.message}`);
+      logger.info('Trying to use local Chrome...');
+      
+      const localChrome = this.findLocalChrome();
+      if (localChrome) {
+        logger.info(`Using local Chrome: ${localChrome}`);
+        return path.dirname(localChrome);
+      }
+      
+      throw new Error('No Chrome available. Please download dependencies from GitHub releases.');
+    }
+  }
+
+  findLocalChrome() {
+    const possiblePaths = [
+      process.env.PUPPETEER_EXECUTABLE_PATH,
+      '/home/pptruser/chrome/linux-*/chrome-linux*/chrome',
+      '/usr/bin/chromium',
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+    ];
+
+    const { execSync } = require('child_process');
+    
+    for (const pattern of possiblePaths) {
+      if (!pattern) continue;
+      
+      if (pattern.includes('*')) {
+        try {
+          const result = execSync(`ls -d ${pattern} 2>/dev/null | head -1`, { encoding: 'utf8' }).trim();
+          if (result && fs.existsSync(result)) {
+            return result;
+          }
+        } catch (e) {}
+      } else if (fs.existsSync(pattern)) {
+        return pattern;
+      }
+    }
 
     try {
-      fs.unlinkSync(tarball);
+      const result = execSync('which chromium chromium-browser google-chrome 2>/dev/null | head -1', { encoding: 'utf8' }).trim();
+      if (result && fs.existsSync(result)) {
+        return result;
+      }
     } catch (e) {}
 
-    logger.info('Dependencies ready');
-    return chromeDir;
+    return null;
   }
 
   async downloadWithProgress(url, dest, logger) {
