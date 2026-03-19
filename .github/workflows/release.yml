@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Build executable in Docker
+      - name: Build executable and package deps in Docker
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/app \
@@ -21,31 +21,22 @@ jobs:
             -e PKG_CACHE_PATH=/app/.pkg-cache \
             --user root \
             ghcr.io/puppeteer/puppeteer:latest \
-            /bin/bash -c "npm ci --include=dev && npx pkg . --targets node18-linux-x64 --output dist/pptr --options v${{ github.ref_name }}"
-      
-      - name: Package dependencies
-        run: |
-          mkdir -p dist/deps
-          
-          # Copy executable
-          cp dist/pptr dist/deps/pptr
-          
-          # Copy Chrome
-          mkdir -p dist/deps/chrome
-          cp -r /home/pptruser/.cache/puppeteer/chrome/*/chrome-linux/* dist/deps/chrome/
-          
-          # Copy required shared libraries
-          for lib in libnss3 libnspr4 libatk libatspi libdrm libxkbcommon libwayland libpango libcairo libgbm; do
-            cp -r /usr/lib/x86_64-linux-gnu/${lib}* dist/deps/chrome/ 2>/dev/null || true
-          done
-          
-          # Create tarball
-          cd dist/deps && tar -czvf ../deps.tar.gz *
-          
-          # Cleanup deps directory
-          rm -rf dist/deps
-          
-          ls -la dist/
+            /bin/bash -c '
+              npm ci --include=dev && \
+              npx pkg . --targets node18-linux-x64 --output dist/pptr --options v${{ github.ref_name }} && \
+              mkdir -p dist/deps && \
+              cp dist/pptr dist/deps/pptr && \
+              mkdir -p dist/deps/chrome && \
+              cp -r /home/pptruser/.cache/puppeteer/chrome/*/chrome-linux/* dist/deps/chrome/ && \
+              for lib in libnss3 libnspr4 libatk libatspi libdrm libxkbcommon libwayland libpango libcairo libgbm; do
+                cp -r /usr/lib/x86_64-linux-gnu/${lib}* dist/deps/chrome/ 2>/dev/null || true
+              done && \
+              cd dist/deps && tar -czf ../deps.tar.gz * && \
+              cd .. && rm -rf deps && \
+              chmod 644 deps.tar.gz && \
+              chmod 755 pptr && \
+              ls -la
+            '
       
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
@@ -79,9 +70,6 @@ jobs:
         with:
           name: deps
           path: dist
-      
-      - name: Make executable
-        run: chmod +x dist/pptr
       
       - name: Create Release
         uses: softprops/action-gh-release@v2
