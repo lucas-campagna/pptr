@@ -150,6 +150,10 @@ class Runner {
       slowMo: meta.slowMo || this.options.slowMo,
       args: browserArgs,
       executablePath: path.join(chromeDir, 'chrome'),
+      env: {
+        ...process.env,
+        LD_LIBRARY_PATH: chromeDir,
+      },
     };
 
     const browser = await puppeteer.launch(launchOptions);
@@ -223,6 +227,10 @@ class Runner {
       slowMo: meta.slowMo || this.options.slowMo,
       args: browserArgs,
       executablePath: path.join(chromeDir, 'chrome'),
+      env: {
+        ...process.env,
+        LD_LIBRARY_PATH: chromeDir,
+      },
     };
 
     const browser = await puppeteer.launch(launchOptions);
