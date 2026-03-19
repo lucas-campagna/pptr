@@ -162,7 +162,7 @@ class Interpreter {
       const url = this.vars.interpolate(script.open);
       this.logger.info(`Navigating to ${url}`);
       page = await this.browser.newPage();
-      await page.goto(url, { waitUntil: 'networkidle2' });
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
       this.pages.push(page);
     } else {
       page = await this.browser.newPage();
@@ -188,7 +188,7 @@ class Interpreter {
     this.logger.info(`Opening new tab: ${url}`);
     
     const page = await this.browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2' });
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
     this.pages.push(page);
     this.currentIndex = this.pages.length - 1;
 
@@ -392,7 +392,7 @@ class Interpreter {
 
   async handleOpen(page, action) {
     const url = this.vars.interpolate(action.url);
-    await page.goto(url, { waitUntil: 'networkidle2' });
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
     this.logger.info(`Navigated to ${url}`);
   }
 
@@ -427,7 +427,7 @@ class Interpreter {
   async handleNewTab(action) {
     const url = this.vars.interpolate(action.url);
     const page = await this.browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2' });
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
     this.pages.push(page);
     this.currentIndex = this.pages.length - 1;
     this.logger.info(`Opened new tab: ${url}`);

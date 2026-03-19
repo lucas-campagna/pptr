@@ -135,10 +135,10 @@ class Runner {
     const browserArgs = [
       '--no-sandbox',
       '--disable-setuid-sandbox',
-      '--disable-software-rasterizer',
       '--disable-dev-shm-usage',
       '--no-zygote',
       '--disable-gpu',
+      '--ignore-certificate-errors',
     ];
 
     if (meta.headless === false) {
@@ -147,13 +147,15 @@ class Runner {
       browserArgs.push('--headless=new');
     }
 
+    const { HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy, ...restEnv } = process.env;
+
     const launchOptions = {
       headless: this.options.headless,
       slowMo: meta.slowMo || this.options.slowMo,
       args: browserArgs,
       executablePath: path.join(chromeDir, 'chrome'),
       env: {
-        ...process.env,
+        ...restEnv,
         LD_LIBRARY_PATH: chromeDir,
       },
     };
@@ -214,10 +216,10 @@ class Runner {
     const browserArgs = [
       '--no-sandbox',
       '--disable-setuid-sandbox',
-      '--disable-software-rasterizer',
       '--disable-dev-shm-usage',
       '--no-zygote',
       '--disable-gpu',
+      '--ignore-certificate-errors',
     ];
 
     if (meta.headless === false) {
@@ -226,13 +228,15 @@ class Runner {
       browserArgs.push('--headless=new');
     }
 
+    const { HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy, ...restEnv } = process.env;
+
     const launchOptions = {
       headless: this.options.headless,
       slowMo: meta.slowMo || this.options.slowMo,
       args: browserArgs,
       executablePath: path.join(chromeDir, 'chrome'),
       env: {
-        ...process.env,
+        ...restEnv,
         LD_LIBRARY_PATH: chromeDir,
       },
     };
