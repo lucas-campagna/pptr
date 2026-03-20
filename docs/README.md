@@ -77,18 +77,24 @@ node src/cli.js <script.yaml> [options]
 
 | Option | Description |
 |--------|-------------|
+| `-e, --execute <yaml>` | Execute YAML directly from command line |
 | `--headless` | Run in headless mode (default) |
 | `--no-headless` | Run with visible browser |
+| `-d, --debug` | Enable debug level logging |
 | `--log <path>` | Write logs to file inside output directory |
 | `--output <dir>` | Output directory (default: `./output`) |
-| `--var <VAR=VALUE>` | Override variable (can use multiple times) |
-| `-v <VAR=VALUE>` | Override variable (shorthand) |
+| `-v, --var <VAR=VALUE>` | Override variable (can use multiple times) |
+| `-o, --output <path>` | Compile script to standalone shell script |
 
 ### Examples
 
 ```bash
 # Basic usage
 ./run-puppeteer.sh scripts/example.yaml
+
+# Execute YAML from command line
+./run-puppeteer.sh -e "open: https://example.com"
+./run-puppeteer.sh -e "open: https://example.com\nactions:\n  - log: hello"
 
 # Override variables
 ./run-puppeteer.sh scripts/example.yaml --var BASE_URL=https://google.com
@@ -101,8 +107,23 @@ node src/cli.js <script.yaml> [options]
 # Run with visible browser
 ./run-puppeteer.sh scripts/example.yaml --no-headless
 
+# Enable debug logging
+./run-puppeteer.sh scripts/example.yaml -d
+
 # Custom output directory
 ./run-puppeteer.sh scripts/example.yaml --output ./results --log automation.log
+
+# Compile to standalone shell script
+./run-puppeteer.sh scripts/example.yaml -o myapp
+
+# Run compiled script (pptr must be in PATH)
+./myapp
+
+# Compile with default variables
+./run-puppeteer.sh scripts/example.yaml -o myapp -v BASE_URL=https://google.com
+
+# Override variables at runtime
+./myapp -v BASE_URL=https://github.com
 ```
 
 ## Script Structure
@@ -874,6 +895,61 @@ actions:
     catch:
       - log: "Optional element not found"
 ```
+
+## Compiling Scripts
+
+Compile a YAML script into a standalone shell script that can be distributed and run without the pptr source.
+
+### Basic Compilation
+
+```bash
+pptr scripts/example.yaml -o myapp
+```
+
+This creates `myapp` - a shell script that calls pptr with the embedded YAML.
+
+### Compilation with Default Variables
+
+```bash
+pptr scripts/example.yaml -o myapp -v BASE_URL=https://google.com -v API_KEY=abc123
+```
+
+### Running Compiled Scripts
+
+The compiled script requires `pptr` to be in your PATH:
+
+```bash
+# Run with defaults from compilation
+./myapp
+
+# Override variables at runtime
+./myapp -v BASE_URL=https://github.com
+
+# Enable debug logging
+./myapp -d
+
+# Use visible browser
+./myapp --no-headless
+```
+
+### Shell Script Structure
+
+The compiled script looks like this:
+
+```bash
+#!/usr/bin/env bash
+set -e
+
+if ! command -v pptr &> /dev/null; then
+    echo "Error: 'pptr' not found in PATH"
+    echo "Make sure pptr is installed and available in your PATH"
+    exit 1
+fi
+
+exec pptr -e '...yaml content...' -v VAR1=val1 "$@"
+```
+
+The `"$@"` passes through all runtime arguments, allowing variable overrides.
 
 ## Project Structure
 

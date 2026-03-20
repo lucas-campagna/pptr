@@ -51,24 +51,32 @@ npm run build
 
 ```bash
 pptr <script.yaml> [options]
+pptr -e "<yaml>" [options]
+pptr <script.yaml> -o <output> [options]
 ```
 
 ### Options
 
 | Option | Description |
 |--------|-------------|
+| `-e, --execute <yaml>` | Execute YAML directly from command line |
 | `--headless` | Run in headless mode (default) |
 | `--no-headless` | Run with visible browser |
+| `-d, --debug` | Enable debug level logging |
 | `--log <path>` | Write logs to file |
 | `--output <dir>` | Output directory (default: `./output`) |
-| `--var <VAR=VALUE>` | Override variable (can use multiple times) |
-| `-v <VAR=VALUE>` | Override variable (shorthand) |
+| `-v, --var <VAR=VALUE>` | Override variable (can use multiple times) |
+| `-o, --output <path>` | Compile script to standalone shell script |
 
 ### Examples
 
 ```bash
 # Basic usage
 ./pptr scripts/example.yaml
+
+# Execute YAML from command line
+./pptr -e "open: https://example.com"
+./pptr -e "open: https://example.com\nactions:\n  - log: hello"
 
 # Override variables
 ./pptr scripts/example.yaml --var BASE_URL=https://google.com
@@ -81,8 +89,23 @@ pptr <script.yaml> [options]
 # Run with visible browser
 ./pptr scripts/example.yaml --no-headless
 
+# Enable debug logging
+./pptr scripts/example.yaml -d
+
 # Custom output directory
 ./pptr scripts/example.yaml --output ./results --log automation.log
+
+# Compile to standalone shell script
+./pptr scripts/example.yaml -o myapp
+
+# Run compiled script (pptr must be in PATH)
+./myapp
+
+# Compile with default variables
+./pptr scripts/example.yaml -o myapp -v BASE_URL=https://google.com
+
+# Override variables at runtime
+./myapp -v BASE_URL=https://github.com
 ```
 
 ## Script Structure
