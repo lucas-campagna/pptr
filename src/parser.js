@@ -184,6 +184,14 @@ class Parser {
             hide: value.hide || false,
           };
 
+        case 'fn':
+          return {
+            type: 'fn',
+            name: value.name,
+            params: value.params || {},
+            actions: this.normalizeActions(value.actions || []),
+          };
+
         default:
           if (this.functions && this.functions[type]) {
             return {

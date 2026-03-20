@@ -9,6 +9,9 @@ class Interpreter {
     this.pages = [];
     this.currentIndex = 0;
     this.functions = {};
+    this.closureScopes = [{}];
+    this.scopeDepth = 0;
+    this.closureDepth = 0;
   }
 
   async delay(ms) {
@@ -331,8 +334,18 @@ class Interpreter {
         await this.handleInput(action);
         break;
 
+      case 'fn':
+        await this.handleFn(action);
+        break;
+
+      case 'closure':
+        await this.handleClosure(page, action);
+        break;
+
       default:
-        this.logger.warn(`Unknown action type: ${action.type}`);
+        if (!(await this.handleUnknownAction(page, action))) {
+          this.logger.warn(`Unknown action type: ${action.type}`);
+        }
     }
   }
 
@@ -656,6 +669,10 @@ class Interpreter {
 
     const savedVars = { ...this.vars.getAll() };
 
+    const baseDepth = this.scopeDepth;
+    this.scopeDepth++;
+    this.closureScopes[this.scopeDepth] = {};
+
     const paramKeys = Object.keys(params);
     for (const key of paramKeys) {
       const value = providedArgs[key] !== undefined ? providedArgs[key] : params[key];
@@ -678,7 +695,108 @@ class Interpreter {
           this.vars.delete(key);
         }
       }
+      if (this.closureDepth === 0) {
+        this.closureScopes[this.scopeDepth] = null;
+        this.scopeDepth = baseDepth;
+      }
     }
+  }
+
+  async handleFn(action) {
+    const closure = {
+      name: action.name,
+      params: action.params || {},
+      actions: action.actions || [],
+      depth: this.scopeDepth,
+    };
+
+    this.closureScopes[this.scopeDepth][action.name] = closure;
+    this.logger.info(`Defined closure: ${action.name}`);
+  }
+
+  async handleClosure(page, action) {
+    const closureName = action.name;
+    let closure = null;
+
+    const startDepth = this.scopeDepth;
+    for (let d = startDepth; d >= 0; d--) {
+      if (this.closureScopes[d] && this.closureScopes[d][closureName]) {
+        closure = this.closureScopes[d][closureName];
+        break;
+      }
+    }
+
+    if (!closure) {
+      this.logger.warn(`Closure not found: ${closureName}`);
+      return;
+    }
+
+    const params = closure.params || {};
+    const providedArgs = action.args || {};
+
+    const savedVars = { ...this.vars.getAll() };
+
+    this.closureDepth++;
+    const callDepth = closure.depth;
+    this.scopeDepth = callDepth + 1;
+    this.closureScopes[this.scopeDepth] = {};
+
+    const paramKeys = Object.keys(params);
+    for (const key of paramKeys) {
+      const value = providedArgs[key] !== undefined ? providedArgs[key] : params[key];
+      this.vars.set(key, value);
+    }
+
+    try {
+      await this.executeActions(page, closure.actions);
+    } catch (e) {
+      if (e.message === 'RETURN') {
+        this.vars.set('$result', this.vars.get('$result'));
+      } else {
+        throw e;
+      }
+    } finally {
+      for (const key of paramKeys) {
+        if (savedVars.hasOwnProperty(key)) {
+          this.vars.set(key, savedVars[key]);
+        } else {
+          this.vars.delete(key);
+        }
+      }
+      this.closureScopes[this.scopeDepth] = null;
+      this.scopeDepth--;
+      this.closureDepth--;
+    }
+  }
+
+  async handleUnknownAction(page, action) {
+    const actionType = action.type;
+
+    if (!actionType || typeof actionType !== 'string') {
+      return false;
+    }
+
+    let closure = null;
+    for (let d = this.scopeDepth; d >= 0; d--) {
+      if (this.closureScopes[d] && this.closureScopes[d][actionType]) {
+        closure = this.closureScopes[d][actionType];
+        break;
+      }
+    }
+
+    if (closure) {
+      const args = action.value !== undefined ? action.value : {};
+      await this.handleClosure(page, { name: actionType, args });
+      return true;
+    }
+
+    if (this.functions[actionType]) {
+      const args = action.value !== undefined ? action.value : {};
+      await this.handleFunc(page, { name: actionType, args });
+      return true;
+    }
+
+    return false;
   }
 
   async handleInput(action) {
