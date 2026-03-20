@@ -1,0 +1,10 @@
+meta:
+  name: "roboform-title-test"
+  logs: "/tmp/script.log"
+
+open: "https://www.roboform.com/filling-test-all-fields"
+
+actions:
+  - wait: 5000
+  - screenshot:
+      path: "/mnt/c/Users/CaLu150/Downloads/screenshot.png"

@@ -5,7 +5,7 @@ class Interpreter {
   constructor(browser, options = {}) {
     this.browser = browser;
     this.vars = new VariableEngine(options.vars || {});
-    this.logger = options.logger || new Logger(options.logPath);
+    this.logger = options.logger || new Logger(options.logPath, options.debug || false);
     this.pages = [];
     this.currentIndex = 0;
     this.functions = {};
@@ -153,7 +153,7 @@ class Interpreter {
   }
 
   async run(script) {
-    this.logger.info('Starting automation');
+    this.logger.debug('Starting automation');
 
     if (script.vars) {
       Object.entries(script.vars).forEach(([key, value]) => {
@@ -167,7 +167,7 @@ class Interpreter {
     let page;
     if (script.open) {
       const url = this.vars.interpolate(script.open);
-      this.logger.info(`Navigating to ${url}`);
+      this.logger.debug(`Navigating to ${url}`);
       page = await this.browser.newPage();
       await page.goto(url, { waitUntil: 'domcontentloaded' });
       this.pages.push(page);
@@ -186,13 +186,13 @@ class Interpreter {
       }
     }
 
-    this.logger.info('Automation complete');
+    this.logger.debug('Automation complete');
     return this.vars.getAll();
   }
 
   async executeTab(tabConfig) {
     const url = this.vars.interpolate(tabConfig.open);
-    this.logger.info(`Opening new tab: ${url}`);
+    this.logger.debug(`Opening new tab: ${url}`);
     
     const page = await this.browser.newPage();
     await page.goto(url, { waitUntil: 'domcontentloaded' });
@@ -242,18 +242,18 @@ class Interpreter {
         break;
 
       case 'back':
+        this.logger.debug('Navigating back');
         await page.goBack();
-        this.logger.info('Navigated back');
         break;
 
       case 'forward':
+        this.logger.debug('Navigating forward');
         await page.goForward();
-        this.logger.info('Navigated forward');
         break;
 
       case 'reload':
+        this.logger.debug('Reloading page');
         await page.reload();
-        this.logger.info('Page reloaded');
         break;
 
       case 'hover':
@@ -269,8 +269,8 @@ class Interpreter {
         break;
 
       case 'press':
+        this.logger.debug(`Pressing ${action.key}`);
         await page.keyboard.press(action.key);
-        this.logger.info(`Pressed ${action.key}`);
         break;
 
       case 'newTab':
@@ -356,9 +356,9 @@ class Interpreter {
 
   async handleClick(page, action) {
     const selector = this.vars.interpolate(action.selector);
+    this.logger.debug(`Clicking ${selector}`);
     await this.waitForElement(page, selector, { visible: true });
     await this.clickElement(page, selector);
-    this.logger.info(`Clicked ${selector}`);
     
     if (action.wait) {
       if (typeof action.wait === 'number') {
@@ -372,17 +372,17 @@ class Interpreter {
   async handleType(page, action) {
     const selector = this.vars.interpolate(action.selector);
     const text = this.vars.interpolate(action.text);
+    this.logger.debug(`Typing into ${selector}`);
     await this.waitForElement(page, selector, { visible: true });
     await this.typeInElement(page, selector, text, { delay: action.delay || 0 });
-    this.logger.info(`Typed into ${selector}`);
   }
 
   async handleFill(page, action) {
     const selector = this.vars.interpolate(action.selector);
     const text = this.vars.interpolate(action.text);
+    this.logger.debug(`Filling ${selector}`);
     await this.waitForElement(page, selector, { visible: true });
     await this.fillElement(page, selector, text);
-    this.logger.info(`Filled ${selector}`);
   }
 
   async fillElement(page, selector, text) {
@@ -401,15 +401,16 @@ class Interpreter {
   async handleWait(page, action) {
     if (action.selector) {
       const selector = this.vars.interpolate(action.selector);
+      this.logger.debug(`Waiting for ${selector}`);
       await this.waitForElement(page, selector, { visible: true, timeout: action.timeout || 3000 });
-      this.logger.info(`Waited for ${selector}`);
     } else if (action.timeout) {
+      this.logger.debug(`Waiting ${action.timeout}ms`);
       await this.delay(action.timeout);
-      this.logger.info(`Waited ${action.timeout}ms`);
     } else if (action.navigation) {
+      this.logger.debug('Waiting for navigation');
       await page.waitForNavigation({ waitUntil: 'networkidle2' });
-      this.logger.info('Waited for navigation');
     } else if (action.condition) {
+      this.logger.debug(`Waiting for condition: ${action.condition}`);
       await page.waitForFunction(
         (cond) => {
           try {
@@ -421,12 +422,12 @@ class Interpreter {
         { timeout: action.timeout || 3000 },
         action.condition
       );
-      this.logger.info(`Waited for condition: ${action.condition}`);
     }
   }
 
   async handleScreenshot(page, action) {
     const path = this.vars.interpolate(action.path);
+    this.logger.debug(`Saving screenshot to ${path}`);
     
     if (action.selector) {
       const element = await this.findElement(page, action.selector);
@@ -436,7 +437,6 @@ class Interpreter {
     } else {
       await page.screenshot({ path, fullPage: action.fullPage || false });
     }
-    this.logger.info(`Screenshot saved: ${path}`);
   }
 
   async handleLog(action) {
@@ -446,26 +446,27 @@ class Interpreter {
 
   async handleOpen(page, action) {
     const url = this.vars.interpolate(action.url);
+    this.logger.debug(`Navigating to ${url}`);
     await page.goto(url, { waitUntil: 'domcontentloaded' });
-    this.logger.info(`Navigated to ${url}`);
   }
 
   async handleHover(page, action) {
     const selector = this.vars.interpolate(action.selector);
+    this.logger.debug(`Hovering over ${selector}`);
     await this.waitForElement(page, selector, { visible: true });
     await this.hoverElement(page, selector);
-    this.logger.info(`Hovered over ${selector}`);
   }
 
   async handleSelect(page, action) {
     const selector = this.vars.interpolate(action.selector);
     const value = this.vars.interpolate(action.value);
+    this.logger.debug(`Selecting ${value} in ${selector}`);
     await this.waitForElement(page, selector, { visible: true });
     await this.selectInElement(page, selector, value);
-    this.logger.info(`Selected ${value} in ${selector}`);
   }
 
   async handleScroll(page, action) {
+    this.logger.debug('Scrolling');
     if (action.selector) {
       const selector = this.vars.interpolate(action.selector);
       const element = await this.findElement(page, selector);
@@ -475,16 +476,15 @@ class Interpreter {
     } else if (action.y !== undefined) {
       await page.evaluate(y => window.scrollTo(0, y), action.y);
     }
-    this.logger.info('Scrolled');
   }
 
   async handleNewTab(action) {
     const url = this.vars.interpolate(action.url);
+    this.logger.debug(`Opening new tab: ${url}`);
     const page = await this.browser.newPage();
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     this.pages.push(page);
     this.currentIndex = this.pages.length - 1;
-    this.logger.info(`Opened new tab: ${url}`);
     
     if (action.actions) {
       await this.executeActions(page, action.actions);
@@ -493,21 +493,21 @@ class Interpreter {
 
   async handleSwitchTab(action) {
     const index = action.index;
+    this.logger.debug(`Switching to tab ${index}`);
     if (index >= 0 && index < this.pages.length) {
       this.currentIndex = index;
       await this.pages[index].bringToFront();
-      this.logger.info(`Switched to tab ${index}`);
     } else {
       this.logger.warn(`Invalid tab index: ${index}`);
     }
   }
 
   async handleCloseTab() {
+    this.logger.debug('Closing current tab');
     if (this.pages.length > 1) {
       await this.pages[this.currentIndex].close();
       this.pages.splice(this.currentIndex, 1);
       this.currentIndex = Math.max(0, this.currentIndex - 1);
-      this.logger.info('Closed current tab');
     }
   }
 
@@ -555,11 +555,11 @@ class Interpreter {
         await this.executeActions(page, action.actions || []);
       } catch (e) {
         if (e.message === 'BREAK') {
-          this.logger.info(`Loop broken at iteration ${i}`);
+          this.logger.debug(`Loop broken at iteration ${i}`);
           break;
         }
         if (e.message === 'CONTINUE') {
-          this.logger.info(`Loop continued at iteration ${i}`);
+          this.logger.debug(`Loop continued at iteration ${i}`);
           continue;
         }
         throw e;
@@ -603,7 +603,7 @@ class Interpreter {
     for (let i = 0; i < times; i++) {
       try {
         await this.executeActions(page, action.action || []);
-        this.logger.info(`Action succeeded on attempt ${i + 1}`);
+        this.logger.debug(`Action succeeded on attempt ${i + 1}`);
         return;
       } catch (e) {
         lastError = e;
@@ -646,26 +646,26 @@ class Interpreter {
         })
       );
       this.vars.set(action.save, extracted);
-      this.logger.info(`Extracted ${extracted.length} items`);
+      this.logger.debug(`Extracted ${extracted.length} items`);
     } else if (action.multiple) {
       const elements = await this.findElements(page, selector);
       const values = await Promise.all(
         elements.map(el => el.evaluate(e => e.textContent.trim()))
       );
       this.vars.set(action.save, values);
-      this.logger.info(`Extracted ${values.length} values`);
+      this.logger.debug(`Extracted ${values.length} values`);
     } else {
       const element = await this.findElement(page, selector);
       const value = element ? await element.evaluate(e => e.textContent.trim()) : null;
       this.vars.set(action.save, value);
-      this.logger.info(`Extracted value: ${value}`);
+      this.logger.debug(`Extracted value: ${value}`);
     }
   }
 
   async handlePdf(page, action) {
     const path = this.vars.interpolate(action.path);
     await page.pdf({ path, format: 'A4' });
-    this.logger.info(`PDF saved: ${path}`);
+    this.logger.debug(`PDF saved: ${path}`);
   }
 
   async handleWrite(action) {
@@ -678,7 +678,7 @@ class Interpreter {
     } else {
       fs.writeFileSync(path, content);
     }
-    this.logger.info(`Wrote to file: ${path}`);
+    this.logger.debug(`Wrote to file: ${path}`);
   }
 
   async handleFunc(page, action) {
@@ -743,7 +743,7 @@ class Interpreter {
     };
 
     this.closureScopes[this.scopeDepth][action.name] = closure;
-    this.logger.info(`Defined closure: ${action.name}`);
+    this.logger.debug(`Defined closure: ${action.name}`);
   }
 
   async handleClosure(page, action) {

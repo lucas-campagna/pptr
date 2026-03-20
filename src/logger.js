@@ -2,8 +2,9 @@ const fs = require('fs');
 const path = require('path');
 
 class Logger {
-  constructor(logPath) {
+  constructor(logPath, debug = false) {
     this.logPath = logPath;
+    this._debug = debug;
     if (logPath) {
       const dir = path.dirname(logPath);
       if (!fs.existsSync(dir)) {
@@ -18,6 +19,9 @@ class Logger {
   }
 
   write(level, message) {
+    if (level === 'DEBUG' && !this._debug) {
+      return;
+    }
     const formatted = this.formatMessage(level, message);
     console.log(formatted);
     if (this.logPath) {

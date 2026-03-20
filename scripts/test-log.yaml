@@ -1,0 +1,9 @@
+meta:
+  name: "test-user-log"
+  logs: "/tmp/script.log"
+
+open: "https://example.com"
+
+actions:
+  - log: "This is a user message"
+  - wait: 1000

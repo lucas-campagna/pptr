@@ -1,0 +1,11 @@
+meta:
+  name: "google-search-bar-screenshot"
+  logs: "/tmp/script.log"
+
+open: "https://www.google.com"
+
+actions:
+  - wait: 2000
+  - screenshot:
+      selector: "textarea[name='q']"
+      path: "/mnt/c/Users/CaLu150/Downloads/screenshot.png"

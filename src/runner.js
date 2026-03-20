@@ -14,6 +14,7 @@ class Runner {
       slowMo: options.slowMo || 0,
       timeout: options.timeout || 3000,
       logPath: options.logPath,
+      debug: options.debug || false,
       vars: options.vars || {},
       version: options.version || '1.0.0',
       ...options,
@@ -37,11 +38,11 @@ class Runner {
     const chromeDir = this.getChromeDir();
 
     if (fs.existsSync(chromeDir)) {
-      logger.info(`Using cached dependencies from ${depsDir}`);
+      logger.debug(`Using cached dependencies from ${depsDir}`);
       return chromeDir;
     }
 
-    logger.info(`Downloading dependencies for v${this.getVersion()}...`);
+    logger.debug(`Downloading dependencies for v${this.getVersion()}...`);
 
     fs.mkdirSync(depsDir, { recursive: true });
 
@@ -50,14 +51,14 @@ class Runner {
 
     await this.downloadWithProgress(url, tarball, logger);
 
-    logger.info('Extracting dependencies...');
+    logger.debug('Extracting dependencies...');
     await this.extractTarGz(tarball, depsDir, logger);
 
     try {
       fs.unlinkSync(tarball);
     } catch (e) {}
 
-    logger.info('Dependencies ready');
+    logger.debug('Dependencies ready');
     return chromeDir;
   }
 
@@ -73,7 +74,7 @@ class Runner {
       const request = client.get(urlObj, (response) => {
         if (response.statusCode === 302 || response.statusCode === 301) {
           const redirectUrl = response.headers.location;
-          logger.info(`Following redirect to ${redirectUrl}`);
+          logger.debug(`Following redirect to ${redirectUrl}`);
           return this.downloadWithProgress(redirectUrl, dest, logger).then(resolve).catch(reject);
         }
 
@@ -127,8 +128,8 @@ class Runner {
     const meta = script.meta || {};
     const logPath = this.options.logPath || meta.logs;
 
-    const logger = new Logger(logPath);
-    logger.info('Initializing Puppeteer');
+    const logger = new Logger(logPath, this.options.debug);
+    logger.debug('Initializing Puppeteer');
 
     const chromeDir = await this.ensureDependencies(logger);
 
@@ -190,12 +191,13 @@ class Runner {
         logger,
         vars,
         logPath,
+        debug: this.options.debug,
       });
 
       result = await interpreter.run(script);
     } finally {
       await browser.close();
-      logger.info('Browser closed');
+      logger.debug('Browser closed');
     }
 
     return result;
@@ -208,8 +210,8 @@ class Runner {
     const meta = script.meta || {};
     const logPath = this.options.logPath || meta.logs;
 
-    const logger = new Logger(logPath);
-    logger.info('Initializing Puppeteer');
+    const logger = new Logger(logPath, this.options.debug);
+    logger.debug('Initializing Puppeteer');
 
     const chromeDir = await this.ensureDependencies(logger);
 
@@ -271,12 +273,13 @@ class Runner {
         logger,
         vars,
         logPath,
+        debug: this.options.debug,
       });
 
       result = await interpreter.run(script);
     } finally {
       await browser.close();
-      logger.info('Browser closed');
+      logger.debug('Browser closed');
     }
 
     return result;

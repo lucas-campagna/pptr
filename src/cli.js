@@ -36,6 +36,7 @@ program
   .argument('<script>', 'path to YAML script file')
   .option('--headless', 'run in headless mode (default)', true)
   .option('--no-headless', 'run in visible browser')
+  .option('-d, --debug', 'enable debug level logging', false)
   .option('--log <path>', 'path to log file')
   .option('-v, --var <VAR=VALUE>', 'override variable (can be used multiple times)', collectVars, [])
   .description('YAML-based Puppeteer automation script runner')
@@ -51,6 +52,7 @@ program
     const runnerOptions = {
       headless: options.headless,
       logPath: options.log || null,
+      debug: options.debug || false,
       vars,
       version,
     };
