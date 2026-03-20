@@ -12,6 +12,8 @@ A YAML-based browser automation scripting language built on top of Puppeteer.
 - **Parallel Execution**: Run actions concurrently
 - **Tab Management**: Open, switch, and close browser tabs
 - **Data Extraction**: Extract text, attributes, and structured data
+- **Functions**: Define reusable action blocks with parameters
+- **Interactive Input**: Prompt users for input during script execution
 - **Plain Text Logging**: Human-readable logs with timestamps
 - **Standalone Executable**: No Node.js or Docker required
 
@@ -105,6 +107,14 @@ actions:
       text: "${USERNAME}"
   - screenshot: output.png
 
+functions:
+  myfunc:
+    params:
+      arg1: "default value"
+      arg2: null
+    actions:
+      - log: "Hello ${arg1}"
+
 tabs:
   - open: https://other-site.com
     actions:
@@ -180,6 +190,12 @@ Selectors starting with `/` are treated as XPath:
 - `screenshot` - Take screenshot
 - `pdf` - Generate PDF
 - `write` - Write to file
+- `input` - Prompt user for input
+
+### Functions
+
+- `functions` - Define reusable action blocks
+- `return` - Return value from function
 
 ### Logging
 
@@ -240,6 +256,51 @@ actions:
         - click: "#optional-popup"
     catch:
       - log: "Popup not found, continuing"
+```
+
+### Functions
+
+```yaml
+functions:
+  login:
+    params:
+      username: null
+      password: null
+    actions:
+      - type:
+          selector: "#username"
+          text: "${username}"
+      - type:
+          selector: "#password"
+          text: "${password}"
+      - click: "#submit"
+      - return: "logged_in"
+
+open: https://example.com/login
+
+actions:
+  - login:
+      username: "user@example.com"
+      password: "secret123"
+  - log: "Login result: ${result}"
+```
+
+### Interactive Input
+
+```yaml
+actions:
+  # Simple form - result stored in $result
+  - input: "Enter your name: "
+
+  # Full form with custom variable
+  - input:
+      prompt: "Password: "
+      var: "user_password"
+      default: null
+      hide: true
+
+  - log: "Welcome, ${result}!"
+  - log: "Password set: ${user_password}"
 ```
 
 ## License
