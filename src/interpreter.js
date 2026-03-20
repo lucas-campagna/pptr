@@ -32,7 +32,7 @@ class Interpreter {
       try {
         const locator = page.locator(this.toXPathSelector(selector));
         if (locator.waitFor) {
-          await locator.waitFor({ timeout: options.timeout || 30000 });
+          await locator.waitFor({ timeout: options.timeout || 3000 });
         } else {
           await page.waitForSelector(this.toXPathSelector(selector), options);
         }
@@ -401,7 +401,7 @@ class Interpreter {
   async handleWait(page, action) {
     if (action.selector) {
       const selector = this.vars.interpolate(action.selector);
-      await this.waitForElement(page, selector, { visible: true, timeout: action.timeout || 30000 });
+      await this.waitForElement(page, selector, { visible: true, timeout: action.timeout || 3000 });
       this.logger.info(`Waited for ${selector}`);
     } else if (action.timeout) {
       await this.delay(action.timeout);
@@ -418,7 +418,7 @@ class Interpreter {
             return false;
           }
         },
-        { timeout: action.timeout || 30000 },
+        { timeout: action.timeout || 3000 },
         action.condition
       );
       this.logger.info(`Waited for condition: ${action.condition}`);

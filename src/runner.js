@@ -12,7 +12,7 @@ class Runner {
     this.options = {
       headless: options.headless !== false,
       slowMo: options.slowMo || 0,
-      timeout: options.timeout || 30000,
+      timeout: options.timeout || 3000,
       logPath: options.logPath,
       vars: options.vars || {},
       version: options.version || '1.0.0',
