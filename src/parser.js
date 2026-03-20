@@ -17,6 +17,17 @@ class Parser {
       throw new Error('Empty script');
     }
 
+    if (Array.isArray(doc)) {
+      return {
+        meta: {},
+        vars: {},
+        open: null,
+        functions: {},
+        actions: this.normalizeActions(doc),
+        tabs: [],
+      };
+    }
+
     this.functions = this.normalizeFunctions(doc.functions || {});
 
     const script = {
