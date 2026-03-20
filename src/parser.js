@@ -72,6 +72,12 @@ class Parser {
           }
           return { type: 'type', selector: value };
 
+        case 'fill':
+          if (typeof value === 'object') {
+            return { type: 'fill', selector: value.selector, text: value.text };
+          }
+          return { type: 'fill', selector: value };
+
         case 'wait':
           if (typeof value === 'number') {
             return { type: 'wait', timeout: value };

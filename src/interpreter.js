@@ -221,6 +221,10 @@ class Interpreter {
         await this.handleType(page, action);
         break;
 
+      case 'fill':
+        await this.handleFill(page, action);
+        break;
+
       case 'wait':
         await this.handleWait(page, action);
         break;
@@ -371,6 +375,27 @@ class Interpreter {
     await this.waitForElement(page, selector, { visible: true });
     await this.typeInElement(page, selector, text, { delay: action.delay || 0 });
     this.logger.info(`Typed into ${selector}`);
+  }
+
+  async handleFill(page, action) {
+    const selector = this.vars.interpolate(action.selector);
+    const text = this.vars.interpolate(action.text);
+    await this.waitForElement(page, selector, { visible: true });
+    await this.fillElement(page, selector, text);
+    this.logger.info(`Filled ${selector}`);
+  }
+
+  async fillElement(page, selector, text) {
+    if (this.isXPath(selector)) {
+      try {
+        await page.locator(this.toXPathSelector(selector)).fill(text);
+      } catch (e) {
+        const element = await this.findElement(page, selector);
+        if (element) await element.type(text, { delay: 0 });
+      }
+    } else {
+      await page.locator(selector).fill(text);
+    }
   }
 
   async handleWait(page, action) {

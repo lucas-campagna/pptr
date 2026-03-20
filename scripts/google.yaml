@@ -1,21 +1,19 @@
-meta:
-  name: "google-example"
-  logs: "./output/script.log"
+- open: https://google.com
 
-vars:
-  BASE_URL: "https://google.com"
-  SEARCH_TERM: "puppeteer testing"
+- log: "Starting automation..."
 
-open: ${BASE_URL}
+- screenshot: "/tmp/homepage.png"
 
-actions:
-  - log: "Starting automation..."
+- wait: textarea
 
-  - screenshot: "./output/homepage.png"
+- log: "Page loaded"
 
-  - wait: "#APjFqb"
+- fill:
+    selector: textarea
+    text: games
 
-  - log: "Page loaded"
+- press: Enter
 
-  - type: ${BASE_URL}
-  - log: "Automation complete"
+- wait: {navigation: true}
+
+- log: "Automation complete"
