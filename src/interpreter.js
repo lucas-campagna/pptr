@@ -10,6 +10,7 @@ class Interpreter {
     this.currentIndex = 0;
     this.functions = {};
     this.closureScopes = [{}];
+    this.scopeNewVars = [{}];
     this.scopeDepth = 0;
     this.closureDepth = 0;
   }
@@ -672,6 +673,7 @@ class Interpreter {
     const baseDepth = this.scopeDepth;
     this.scopeDepth++;
     this.closureScopes[this.scopeDepth] = {};
+    this.scopeNewVars[this.scopeDepth] = [];
 
     const paramKeys = Object.keys(params);
     for (const key of paramKeys) {
@@ -695,6 +697,11 @@ class Interpreter {
           this.vars.delete(key);
         }
       }
+      const newVars = this.scopeNewVars[this.scopeDepth] || [];
+      for (const key of newVars) {
+        this.vars.delete(key);
+      }
+      this.scopeNewVars[this.scopeDepth] = [];
       if (this.closureDepth === 0) {
         this.closureScopes[this.scopeDepth] = null;
         this.scopeDepth = baseDepth;
@@ -740,6 +747,7 @@ class Interpreter {
     const callDepth = closure.depth;
     this.scopeDepth = callDepth + 1;
     this.closureScopes[this.scopeDepth] = {};
+    this.scopeNewVars[this.scopeDepth] = [];
 
     const paramKeys = Object.keys(params);
     for (const key of paramKeys) {
@@ -763,6 +771,11 @@ class Interpreter {
           this.vars.delete(key);
         }
       }
+      const newVars = this.scopeNewVars[this.scopeDepth] || [];
+      for (const key of newVars) {
+        this.vars.delete(key);
+      }
+      this.scopeNewVars[this.scopeDepth] = [];
       this.closureScopes[this.scopeDepth] = null;
       this.scopeDepth--;
       this.closureDepth--;
@@ -796,6 +809,28 @@ class Interpreter {
       return true;
     }
 
+    return await this.handleVarAssignment(action);
+  }
+
+  async handleVarAssignment(action) {
+    const actionType = action.type;
+    if (action.value === null || 
+        typeof action.value === 'string' || 
+        typeof action.value === 'number' || 
+        typeof action.value === 'boolean') {
+      const isNew = this.vars.get(actionType) === undefined;
+      if (isNew && this.scopeDepth > 0) {
+        if (!this.scopeNewVars[this.scopeDepth]) {
+          this.scopeNewVars[this.scopeDepth] = [];
+        }
+        this.scopeNewVars[this.scopeDepth].push(actionType);
+      }
+      const value = typeof action.value === 'string' 
+        ? this.vars.interpolate(action.value) 
+        : action.value;
+      this.vars.set(actionType, value);
+      return true;
+    }
     return false;
   }
 
