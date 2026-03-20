@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const path = require('path');
+const fs = require('fs');
 const { Command } = require('commander');
 const Runner = require('./runner');
 
@@ -28,38 +29,100 @@ function collectVars(value, previous) {
   return previous;
 }
 
+function escapeShell(str) {
+  return str.replace(/'/g, "'\\''");
+}
+
+function compile(scriptPath, options) {
+  let yamlContent;
+
+  if (options.execute) {
+    yamlContent = options.execute;
+  } else {
+    const resolvedPath = path.resolve(scriptPath);
+    if (!fs.existsSync(resolvedPath)) {
+      console.error(`Error: Script file not found: ${resolvedPath}`);
+      process.exit(1);
+    }
+    yamlContent = fs.readFileSync(resolvedPath, 'utf-8');
+  }
+
+  const outputPath = path.resolve(options.output);
+
+  const defaultVars = [];
+  if (options.var) {
+    for (const { key, value } of options.var) {
+      defaultVars.push(`-v ${key}=${value}`);
+    }
+  }
+
+  const headlessFlag = options.headless ? '' : '--no-headless';
+  const debugFlag = options.debug ? '-d' : '';
+  const logFlag = options.log ? `--log ${options.log}` : '';
+
+  const defaultArgs = [headlessFlag, debugFlag, logFlag].filter(Boolean).join(' ');
+  const varArgs = defaultVars.join(' ');
+
+  const escapedYaml = escapeShell(yamlContent);
+
+  const shellScript = `#!/usr/bin/env bash
+set -e
+
+if ! command -v pptr &> /dev/null; then
+    echo "Error: 'pptr' not found in PATH"
+    echo "Make sure pptr is installed and available in your PATH"
+    exit 1
+fi
+
+exec pptr -e '${escapedYaml}' ${varArgs} ${defaultArgs} "$@"
+`;
+
+  fs.writeFileSync(outputPath, shellScript);
+  fs.chmodSync(outputPath, '755');
+  console.log(`Compiled successfully: ${outputPath}`);
+}
+
 const program = new Command();
 
 program
   .name('pptr')
   .version(version)
-  .argument('<script>', 'path to YAML script file')
+  .argument('[script]', 'path to YAML script file')
+  .option('-e, --execute <yaml>', 'YAML content to execute directly')
   .option('--headless', 'run in headless mode (default)', true)
   .option('--no-headless', 'run in visible browser')
   .option('-d, --debug', 'enable debug level logging', false)
   .option('--log <path>', 'path to log file')
   .option('-v, --var <VAR=VALUE>', 'override variable (can be used multiple times)', collectVars, [])
+  .option('-o, --output <path>', 'compile script to standalone shell script')
   .description('YAML-based Puppeteer automation script runner')
   .action((scriptPath, options) => {
-    const resolvedPath = path.resolve(scriptPath);
-    const vars = {};
-    if (options.var) {
-      for (const { key, value } of options.var) {
-        vars[key] = value;
-      }
+    if (options.output) {
+      compile(scriptPath, options);
+      return;
     }
 
-    const runnerOptions = {
+    const runOptions = {
       headless: options.headless,
       logPath: options.log || null,
       debug: options.debug || false,
-      vars,
+      vars: {},
       version,
     };
 
-    const runner = new Runner(runnerOptions);
+    if (options.var) {
+      for (const { key, value } of options.var) {
+        runOptions.vars[key] = value;
+      }
+    }
 
-    runner.run(resolvedPath)
+    const runner = new Runner(runOptions);
+
+    const runPromise = options.execute
+      ? runner.runFromString(options.execute)
+      : runner.run(scriptPath);
+
+    runPromise
       .then((result) => {
         console.log('Script completed successfully');
         if (result && Object.keys(result).length > 0) {
