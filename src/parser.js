@@ -172,6 +172,18 @@ class Parser {
           }
           return { type: 'continue' };
 
+        case 'input':
+          if (typeof value === 'string') {
+            return { type: 'input', prompt: value };
+          }
+          return {
+            type: 'input',
+            prompt: value.prompt || '',
+            var: value.var || null,
+            default: value.default !== undefined ? value.default : null,
+            hide: value.hide || false,
+          };
+
         default:
           if (this.functions && this.functions[type]) {
             return {

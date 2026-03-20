@@ -327,6 +327,10 @@ class Interpreter {
         this.vars.set('$result', action.value);
         throw new Error('RETURN');
 
+      case 'input':
+        await this.handleInput(action);
+        break;
+
       default:
         this.logger.warn(`Unknown action type: ${action.type}`);
     }
@@ -674,6 +678,55 @@ class Interpreter {
           this.vars.delete(key);
         }
       }
+    }
+  }
+
+  async handleInput(action) {
+    const readline = require('readline');
+
+    if (!this._inputRl) {
+      this._inputRl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        terminal: false,
+        crlfDelay: Infinity,
+      });
+      this._inputQueue = [];
+      this._inputWaiting = null;
+
+      this._inputRl.on('line', (line) => {
+        if (this._inputWaiting) {
+          this._inputWaiting(line);
+          this._inputWaiting = null;
+        } else {
+          this._inputQueue.push(line);
+        }
+      });
+    }
+
+    const prompt = this.vars.interpolate(action.prompt || 'Enter value: ');
+
+    const answer = await new Promise((resolve) => {
+      if (this._inputQueue.length > 0) {
+        resolve(this._inputQueue.shift());
+      } else {
+        this._inputWaiting = resolve;
+        process.stdout.write(prompt);
+        if (action.hide) {
+          process.stdout.write('\n');
+        }
+      }
+    });
+
+    const trimmed = answer.trim();
+    const value = trimmed === '' 
+      ? (action.default !== undefined ? action.default : null)
+      : trimmed;
+
+    if (action.var) {
+      this.vars.set(action.var, value);
+    } else {
+      this.vars.set('$result', value);
     }
   }
 }
