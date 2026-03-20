@@ -303,6 +303,11 @@ actions:
   - log: "Password set: ${user_password}"
 ```
 
+## Documentation
+
+- [Actions Reference](docs/actions.md) - Complete reference for all actions
+- [Examples](docs/examples.md) - Working examples for common use cases
+
 ## License
 
 ISC
