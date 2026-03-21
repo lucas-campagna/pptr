@@ -1,6 +1,12 @@
 class VariableEngine {
-  constructor(vars = {}) {
+  constructor(vars = {}, declaredVars = []) {
     this.vars = { ...vars };
+    this.declaredVars = new Set(declaredVars);
+    this._allowUndeclared = false;
+  }
+
+  setAllowUndeclared(allow) {
+    this._allowUndeclared = allow;
   }
 
   set(name, value) {
@@ -45,7 +51,18 @@ class VariableEngine {
         return value !== undefined ? String(value) : match;
       }
 
-      return this.vars[trimmed] !== undefined ? String(this.vars[trimmed]) : match;
+      if (this.vars[trimmed] !== undefined) {
+        if (!this._allowUndeclared && !this.declaredVars.has(trimmed) && !trimmed.startsWith('_')) {
+          throw new Error(`Variable '${trimmed}' is not declared in the vars section`);
+        }
+        return String(this.vars[trimmed]);
+      }
+
+      if (!this._allowUndeclared) {
+        throw new Error(`Variable '${trimmed}' is not declared in the vars section`);
+      }
+
+      return match;
     });
   }
 

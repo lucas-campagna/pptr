@@ -123,7 +123,27 @@ class Runner {
   }
 
   createVariableEngine(script) {
-    const vars = new VariableEngine();
+    const declaredVars = [];
+    
+    function collectVars(obj) {
+      if (!obj) return;
+      if (obj.vars && typeof obj.vars === 'object') {
+        declaredVars.push(...Object.keys(obj.vars));
+      }
+      if (obj.subcommands && typeof obj.subcommands === 'object') {
+        for (const sub of Object.values(obj.subcommands)) {
+          collectVars(sub);
+        }
+      }
+    }
+
+    collectVars(script);
+
+    if (this.options.vars && Object.keys(this.options.vars).length > 0) {
+      declaredVars.push(...Object.keys(this.options.vars));
+    }
+
+    const vars = new VariableEngine({}, declaredVars);
     vars.set('env', process.env);
 
     for (const [key, value] of Object.entries(process.env)) {
@@ -132,8 +152,11 @@ class Runner {
       }
     }
 
-    if (script.vars) {
-      Object.entries(script.vars).forEach(([key, value]) => {
+    vars.setAllowUndeclared(true);
+
+    function setVars(obj) {
+      if (!obj || !obj.vars) return;
+      Object.entries(obj.vars).forEach(([key, value]) => {
         if (typeof value === 'string' && value.startsWith('${env.')) {
           const envVar = value.match(/\$\{env\.([^}]+)\}/)?.[1];
           if (envVar) {
@@ -144,6 +167,19 @@ class Runner {
         }
       });
     }
+
+    setVars(script);
+
+    function setSubcommandVars(obj) {
+      if (!obj || !obj.subcommands) return;
+      for (const sub of Object.values(obj.subcommands)) {
+        setVars(sub);
+        setSubcommandVars(sub);
+      }
+    }
+    setSubcommandVars(script);
+
+    vars.setAllowUndeclared(false);
 
     if (this.options.vars && Object.keys(this.options.vars).length > 0) {
       Object.entries(this.options.vars).forEach(([key, value]) => {

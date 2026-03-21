@@ -1,5 +1,6 @@
 vars:
   TEST_VAR: 123
+  MYVAR: ""
 subcommands:
   example:
     actions:
@@ -13,5 +14,5 @@ subcommands:
       - open: https://google.com
       - log: "Starting automation on google"
       - screenshot: "/mnt/c/Users/CaLu150/Downloads/google.png"
-      - log: "Page loaded with var ${TEST_VAR}"
+      - log: "Page loaded with var ${TEST_VAR} ${MYVAR}"
 
