@@ -1,19 +1,17 @@
-- open: https://google.com
+vars:
+  TEST_VAR: 123
+subcommands:
+  example:
+    actions:
+      - open: https://example.com
+      - log: "Starting automation on example"
+      - screenshot: "/mnt/c/Users/CaLu150/Downloads/example.png"
+      - log: "Page loaded with var ${TEST_VAR}"
 
-- log: "Starting automation..."
+  google:
+    actions:
+      - open: https://google.com
+      - log: "Starting automation on google"
+      - screenshot: "/mnt/c/Users/CaLu150/Downloads/google.png"
+      - log: "Page loaded with var ${TEST_VAR}"
 
-- screenshot: "/tmp/homepage.png"
-
-- wait: textarea
-
-- log: "Page loaded"
-
-- fill:
-    selector: textarea
-    text: games
-
-- press: Enter
-
-- wait: {navigation: true}
-
-- log: "Automation complete"

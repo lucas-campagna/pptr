@@ -122,6 +122,38 @@ class Runner {
     });
   }
 
+  createVariableEngine(script) {
+    const vars = new VariableEngine();
+    vars.set('env', process.env);
+
+    for (const [key, value] of Object.entries(process.env)) {
+      if (key.match(/^[A-Z][A-Z0-9_]*$/)) {
+        vars.set(key, value);
+      }
+    }
+
+    if (script.vars) {
+      Object.entries(script.vars).forEach(([key, value]) => {
+        if (typeof value === 'string' && value.startsWith('${env.')) {
+          const envVar = value.match(/\$\{env\.([^}]+)\}/)?.[1];
+          if (envVar) {
+            vars.set(key, process.env[envVar] || '');
+          }
+        } else {
+          vars.set(key, value);
+        }
+      });
+    }
+
+    if (this.options.vars && Object.keys(this.options.vars).length > 0) {
+      Object.entries(this.options.vars).forEach(([key, value]) => {
+        vars.set(key, value);
+      });
+    }
+
+    return vars;
+  }
+
   async run(scriptPath) {
     const parser = new Parser();
     const script = parser.parseFile(scriptPath);
@@ -166,27 +198,7 @@ class Runner {
 
     let result;
     try {
-      const vars = new VariableEngine();
-      vars.set('env', process.env);
-
-      if (script.vars) {
-        Object.entries(script.vars).forEach(([key, value]) => {
-          if (typeof value === 'string' && value.startsWith('${env.')) {
-            const envVar = value.match(/\$\{env\.([^}]+)\}/)?.[1];
-            if (envVar) {
-              vars.set(key, process.env[envVar] || '');
-            }
-          } else {
-            vars.set(key, value);
-          }
-        });
-      }
-
-      if (this.options.vars && Object.keys(this.options.vars).length > 0) {
-        Object.entries(this.options.vars).forEach(([key, value]) => {
-          vars.set(key, value);
-        });
-      }
+      const vars = this.createVariableEngine(script);
 
       const interpreter = new Interpreter(browser, {
         logger,
@@ -249,27 +261,7 @@ class Runner {
 
     let result;
     try {
-      const vars = new VariableEngine();
-      vars.set('env', process.env);
-
-      if (script.vars) {
-        Object.entries(script.vars).forEach(([key, value]) => {
-          if (typeof value === 'string' && value.startsWith('${env.')) {
-            const envVar = value.match(/\$\{env\.([^}]+)\}/)?.[1];
-            if (envVar) {
-              vars.set(key, process.env[envVar] || '');
-            }
-          } else {
-            vars.set(key, value);
-          }
-        });
-      }
-
-      if (this.options.vars && Object.keys(this.options.vars).length > 0) {
-        Object.entries(this.options.vars).forEach(([key, value]) => {
-          vars.set(key, value);
-        });
-      }
+      const vars = this.createVariableEngine(script);
 
       const interpreter = new Interpreter(browser, {
         logger,

@@ -4,7 +4,11 @@ const VariableEngine = require('./variables');
 class Interpreter {
   constructor(browser, options = {}) {
     this.browser = browser;
-    this.vars = new VariableEngine(options.vars || {});
+    if (options.vars instanceof VariableEngine) {
+      this.vars = options.vars;
+    } else {
+      this.vars = new VariableEngine(options.vars || {});
+    }
     this.logger = options.logger || new Logger(options.logPath, options.debug || false);
     this.pages = [];
     this.currentIndex = 0;
@@ -167,10 +171,10 @@ class Interpreter {
       const subVars = content.vars || {};
       const mergedVars = { ...parentVars, ...subVars };
       
-      Object.entries(mergedVars).forEach(([key, value]) => {
+      const interpolated = this.vars.interpolateDeep(mergedVars);
+      Object.entries(interpolated).forEach(([key, value]) => {
         this.vars.set(key, value);
       });
-      this.vars = new VariableEngine(this.vars.interpolateDeep(mergedVars));
     }
 
     this.functions = content.functions || {};
