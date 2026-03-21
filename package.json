@@ -1,6 +1,6 @@
 {
   "name": "pptr",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "YAML-based Puppeteer automation script runner - standalone executable",
   "main": "src/index.js",
   "bin": {

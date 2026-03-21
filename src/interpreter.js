@@ -13,6 +13,7 @@ class Interpreter {
     this.scopeNewVars = [{}];
     this.scopeDepth = 0;
     this.closureDepth = 0;
+    this.subcommands = options.subcommands || [];
   }
 
   async delay(ms) {
@@ -155,18 +156,28 @@ class Interpreter {
   async run(script) {
     this.logger.debug('Starting automation');
 
-    if (script.vars) {
-      Object.entries(script.vars).forEach(([key, value]) => {
-        this.vars.set(key, value);
-      });
-      this.vars = new VariableEngine(this.vars.interpolateDeep(script.vars));
+    let content = script;
+
+    if (this.subcommands.length > 0) {
+      content = this.resolveSubcommand(script, this.subcommands);
     }
 
-    this.functions = script.functions || {};
+    if (content.vars) {
+      const parentVars = script.vars || {};
+      const subVars = content.vars || {};
+      const mergedVars = { ...parentVars, ...subVars };
+      
+      Object.entries(mergedVars).forEach(([key, value]) => {
+        this.vars.set(key, value);
+      });
+      this.vars = new VariableEngine(this.vars.interpolateDeep(mergedVars));
+    }
+
+    this.functions = content.functions || {};
 
     let page;
-    if (script.open) {
-      const url = this.vars.interpolate(script.open);
+    if (content.open) {
+      const url = this.vars.interpolate(content.open);
       this.logger.debug(`Navigating to ${url}`);
       page = await this.browser.newPage();
       await page.goto(url, { waitUntil: 'domcontentloaded' });
@@ -176,18 +187,36 @@ class Interpreter {
       this.pages.push(page);
     }
 
-    if (script.actions && script.actions.length > 0) {
-      await this.executeActions(page, script.actions);
+    if (content.actions && content.actions.length > 0) {
+      await this.executeActions(page, content.actions);
     }
 
-    if (script.tabs && script.tabs.length > 0) {
-      for (const tab of script.tabs) {
+    if (content.tabs && content.tabs.length > 0) {
+      for (const tab of content.tabs) {
         await this.executeTab(tab);
       }
     }
 
     this.logger.debug('Automation complete');
     return this.vars.getAll();
+  }
+
+  resolveSubcommand(script, subcommandPath) {
+    let current = script;
+    const pathStr = [];
+
+    for (const sub of subcommandPath) {
+      pathStr.push(sub);
+      
+      if (!current.subcommands || !current.subcommands[sub]) {
+        const available = Object.keys(current.subcommands || {}).join(', ');
+        const path = pathStr.join(' -> ');
+        throw new Error(`Subcommand '${sub}' not found at path '${path}'. Available: ${available || 'none'}`);
+      }
+      current = current.subcommands[sub];
+    }
+
+    return current;
   }
 
   async executeTab(tabConfig) {

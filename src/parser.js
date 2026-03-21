@@ -25,6 +25,7 @@ class Parser {
         functions: {},
         actions: this.normalizeActions(doc),
         tabs: [],
+        subcommands: {},
       };
     }
 
@@ -37,9 +38,31 @@ class Parser {
       functions: this.functions,
       actions: this.normalizeActions(doc.actions || []),
       tabs: this.normalizeTabs(doc.tabs || []),
+      subcommands: this.normalizeSubcommands(doc.subcommands || {}),
     };
 
     return script;
+  }
+
+  normalizeSubcommands(subcommands) {
+    if (typeof subcommands !== 'object' || subcommands === null) {
+      return {};
+    }
+
+    const result = {};
+    for (const [name, subDoc] of Object.entries(subcommands)) {
+      result[name] = {
+        meta: subDoc.meta || {},
+        vars: subDoc.vars || {},
+        open: subDoc.open || null,
+        functions: this.normalizeFunctions(subDoc.functions || {}),
+        actions: this.normalizeActions(subDoc.actions || []),
+        tabs: this.normalizeTabs(subDoc.tabs || []),
+        subcommands: this.normalizeSubcommands(subDoc.subcommands || {}),
+      };
+    }
+
+    return result;
   }
 
   normalizeActions(actions) {

@@ -17,6 +17,7 @@ class Runner {
       debug: options.debug || false,
       vars: options.vars || {},
       version: options.version || '1.0.0',
+      subcommands: options.subcommands || [],
       ...options,
     };
   }
@@ -192,6 +193,7 @@ class Runner {
         vars,
         logPath,
         debug: this.options.debug,
+        subcommands: this.options.subcommands,
       });
 
       result = await interpreter.run(script);
@@ -274,6 +276,7 @@ class Runner {
         vars,
         logPath,
         debug: this.options.debug,
+        subcommands: this.options.subcommands,
       });
 
       result = await interpreter.run(script);

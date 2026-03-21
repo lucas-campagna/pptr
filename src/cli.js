@@ -88,6 +88,7 @@ program
   .name('pptr')
   .version(version)
   .argument('[script]', 'path to YAML script file')
+  .argument('[subcommands...]', 'subcommands to execute')
   .option('-e, --execute <yaml>', 'YAML content to execute directly')
   .option('--headless', 'run in headless mode (default)', true)
   .option('--no-headless', 'run in visible browser')
@@ -95,10 +96,33 @@ program
   .option('--log <path>', 'path to log file')
   .option('-v, --var <VAR=VALUE>', 'override variable (can be used multiple times)', collectVars, [])
   .option('-o, --output <path>', 'compile script to standalone shell script')
-  .description('YAML-based Puppeteer automation script runner')
-  .action((scriptPath, options) => {
+  .action((scriptPath, subcommands, options) => {
+    const rawArgs = process.argv.slice(2);
+    let subcommandList = subcommands || [];
+    let effectiveScriptPath = scriptPath;
+    let yamlContent = null;
+
+    if (options.execute) {
+      yamlContent = options.execute;
+      const scriptIndex = rawArgs.indexOf('-e') + 1;
+      const executeIndex = rawArgs.indexOf('--execute') + 1;
+      const foundIndex = scriptIndex > 0 ? scriptIndex : executeIndex;
+      
+      if (foundIndex > 0 && foundIndex < rawArgs.length) {
+        const potentialSubcommands = [];
+        for (let i = foundIndex + 1; i < rawArgs.length; i++) {
+          const arg = rawArgs[i];
+          if (arg.startsWith('-')) break;
+          potentialSubcommands.push(arg);
+        }
+        if (potentialSubcommands.length > 0) {
+          subcommandList = potentialSubcommands;
+        }
+      }
+    }
+
     if (options.output) {
-      compile(scriptPath, options);
+      compile(effectiveScriptPath, options);
       return;
     }
 
@@ -108,6 +132,7 @@ program
       debug: options.debug || false,
       vars: {},
       version,
+      subcommands: subcommandList,
     };
 
     if (options.var) {
@@ -118,9 +143,9 @@ program
 
     const runner = new Runner(runOptions);
 
-    const runPromise = options.execute
-      ? runner.runFromString(options.execute)
-      : runner.run(scriptPath);
+    const runPromise = yamlContent
+      ? runner.runFromString(yamlContent)
+      : runner.run(effectiveScriptPath);
 
     runPromise
       .then((result) => {
