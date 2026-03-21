@@ -139,7 +139,7 @@ class Runner {
           if (envVar) {
             vars.set(key, process.env[envVar] || '');
           }
-        } else {
+        } else if (!vars.vars[key]) {
           vars.set(key, value);
         }
       });

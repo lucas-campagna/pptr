@@ -173,7 +173,9 @@ class Interpreter {
       
       const interpolated = this.vars.interpolateDeep(mergedVars);
       Object.entries(interpolated).forEach(([key, value]) => {
-        this.vars.set(key, value);
+        if (!this.vars.vars[key]) {
+          this.vars.set(key, value);
+        }
       });
     }
 
