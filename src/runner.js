@@ -226,7 +226,7 @@ class Runner {
       executablePath: path.join(chromeDir, 'chrome'),
       env: {
         ...restEnv,
-        LD_LIBRARY_PATH: chromeDir,
+        LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
       },
     };
 
@@ -289,7 +289,7 @@ class Runner {
       executablePath: path.join(chromeDir, 'chrome'),
       env: {
         ...restEnv,
-        LD_LIBRARY_PATH: chromeDir,
+        LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
       },
     };
 
