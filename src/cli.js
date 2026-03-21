@@ -148,11 +148,8 @@ program
       : runner.run(effectiveScriptPath);
 
     runPromise
-      .then((result) => {
+      .then(() => {
         console.log('Script completed successfully');
-        if (result && Object.keys(result).length > 0) {
-          console.log('Extracted data:', result);
-        }
         process.exit(0);
       })
       .catch((err) => {
