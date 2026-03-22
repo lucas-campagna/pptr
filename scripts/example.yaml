@@ -5,6 +5,7 @@ meta:
 vars:
   BASE_URL: "https://example.com"
   SEARCH_TERM: "puppeteer testing"
+  page_name: ""
 
 open: ${BASE_URL}
 

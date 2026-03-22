@@ -241,8 +241,11 @@ class Interpreter {
 
   async executeActions(page, actions) {
     for (const action of actions) {
-      const interpolated = this.vars.interpolateDeep(action);
-      await this.executeAction(page, interpolated);
+      // Do not pre-interpolate deeply here: control structures like `for`
+      // define loop variables that are only available when their inner
+      // actions run. Interpolating nested actions early would substitute
+      // placeholders before those runtime variables are set.
+      await this.executeAction(page, action);
     }
   }
 

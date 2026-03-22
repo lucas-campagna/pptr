@@ -52,13 +52,15 @@ class VariableEngine {
       }
 
       if (this.vars[trimmed] !== undefined) {
-        if (!this._allowUndeclared && !this.declaredVars.has(trimmed) && !trimmed.startsWith('_')) {
-          throw new Error(`Variable '${trimmed}' is not declared in the vars section`);
-        }
+        // If the variable has been set at runtime (for example by a for-loop,
+        // function parameter, or an action), allow interpolation even if it
+        // wasn't declared up-front in the vars section.
         return String(this.vars[trimmed]);
       }
 
-      if (!this._allowUndeclared) {
+      // If the variable isn't present, fall back to the declaredVars /
+      // allowUndeclared checks and surface a helpful error when appropriate.
+      if (!this._allowUndeclared && !this.declaredVars.has(trimmed) && !trimmed.startsWith('_')) {
         throw new Error(`Variable '${trimmed}' is not declared in the vars section`);
       }
 
