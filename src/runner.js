@@ -233,9 +233,68 @@ class Runner {
         ...restEnv,
         LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
       },
+      // mirror debug into dumpio so browser stdout/stderr are visible when debugging
+      dumpio: !!this.options.debug,
     };
 
-    const browser = await puppeteer.launch(launchOptions);
+    // Try to resolve system/browser executable if available
+    try {
+      const BrowserFinder = require('./browser-finder');
+      // If BROWSER_PATH is set, finder will validate or throw InvalidEnvError
+      const systemBrowser = await BrowserFinder.findBrowser({ platform: process.platform });
+      if (systemBrowser) {
+        logger.debug(`Using system browser executable: ${systemBrowser}`);
+        launchOptions.executablePath = systemBrowser;
+      }
+    } catch (err) {
+      const BrowserFinder = require('./browser-finder');
+      if (err instanceof BrowserFinder.NotFoundError) {
+        logger.debug('No system browser found; using bundled dependencies');
+        // keep bundled chrome
+      } else if (err instanceof BrowserFinder.InvalidEnvError) {
+        logger.debug(`Invalid BROWSER_PATH provided: ${err.value}`);
+        throw err;
+      } else if (err instanceof BrowserFinder.MultipleFoundError) {
+        const auto = (process.env.AUTO_BROWSER || '').toLowerCase();
+        if (auto === '1' || auto === 'true') {
+          const choice = err.found[0];
+          logger.debug(`Multiple browsers found; AUTO_BROWSER enabled, selecting: ${choice}`);
+          launchOptions.executablePath = choice;
+        } else {
+          // Re-throw to be handled by caller (will cause CLI to print error)
+          throw err;
+        }
+      } else {
+        // unknown error, rethrow
+        throw err;
+      }
+    }
+
+    // Track if we're using a system browser (vs bundled deps)
+    const bundledPath = path.join(chromeDir, 'chrome');
+    let usedSystemBrowser = false;
+    let browser;
+
+    // Try launching; if system browser was selected and launch fails, fallback to bundled deps
+    try {
+      browser = await puppeteer.launch(launchOptions);
+      usedSystemBrowser = launchOptions.executablePath !== bundledPath;
+    } catch (err) {
+      // if we attempted system browser, fallback to bundled
+      if (launchOptions.executablePath !== bundledPath) {
+        logger.debug(`System browser launch failed (${launchOptions.executablePath}), falling back to bundled deps: ${err.message}`);
+        launchOptions.executablePath = bundledPath;
+        browser = await puppeteer.launch(launchOptions);
+        usedSystemBrowser = false;
+      } else {
+        throw err;
+      }
+    }
+
+    // Attach disconnect listener for diagnostic logging
+    try {
+      browser.on('disconnected', () => logger.debug('Browser disconnected'));
+    } catch (e) {}
 
     let result;
     try {
@@ -250,8 +309,37 @@ class Runner {
       });
 
       result = await interpreter.run(script);
+    } catch (err) {
+      // If system browser was used and we get a "Target closed" protocol error, retry with bundled deps
+      const isTargetClosed = err && typeof err.message === 'string' && err.message.includes('Target closed');
+      if (usedSystemBrowser && isTargetClosed) {
+        logger.debug('System browser closed during run; retrying with bundled dependencies');
+        try {
+          await browser.close();
+        } catch (e) {}
+        // try bundled
+        launchOptions.executablePath = bundledPath;
+        browser = await puppeteer.launch(launchOptions);
+        try {
+          const vars2 = this.createVariableEngine(script);
+          const interpreter2 = new Interpreter(browser, {
+            logger,
+            vars: vars2,
+            logPath,
+            debug: this.options.debug,
+            subcommands: this.options.subcommands,
+          });
+          result = await interpreter2.run(script);
+        } finally {
+          // if this still fails, let error bubble
+        }
+      } else {
+        throw err;
+      }
     } finally {
-      await browser.close();
+      try {
+        if (browser) await browser.close();
+      } catch (e) {}
       logger.debug("Browser closed");
     }
 
@@ -298,6 +386,35 @@ class Runner {
         LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
       },
     };
+
+    // Try to resolve system/browser executable if available (same logic as run())
+    try {
+      const BrowserFinder = require('./browser-finder');
+      const systemBrowser = await BrowserFinder.findBrowser({ platform: process.platform });
+      if (systemBrowser) {
+        logger.debug(`Using system browser executable: ${systemBrowser}`);
+        launchOptions.executablePath = systemBrowser;
+      }
+    } catch (err) {
+      const BrowserFinder = require('./browser-finder');
+      if (err instanceof BrowserFinder.NotFoundError) {
+        logger.debug('No system browser found; using bundled dependencies');
+      } else if (err instanceof BrowserFinder.InvalidEnvError) {
+        logger.debug(`Invalid BROWSER_PATH provided: ${err.value}`);
+        throw err;
+      } else if (err instanceof BrowserFinder.MultipleFoundError) {
+        const auto = (process.env.AUTO_BROWSER || '').toLowerCase();
+        if (auto === '1' || auto === 'true') {
+          const choice = err.found[0];
+          logger.debug(`Multiple browsers found; AUTO_BROWSER enabled, selecting: ${choice}`);
+          launchOptions.executablePath = choice;
+        } else {
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
 
     const browser = await puppeteer.launch(launchOptions);
 

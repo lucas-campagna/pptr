@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Form Submitted</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    h1 { color: #28a745; }
+    div { margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>Form Submitted</h1>
+  <h2>Submitted Data:</h2>
+  <div id="result"></div>
+  <p><a href="form.html">Back to form</a></p>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    let html = '';
+    for (const [key, value] of params) {
+      html += '<div><strong>' + key + ':</strong> ' + value + '</div>';
+    }
+    document.getElementById('result').innerHTML = html || '<div>No data submitted</div>';
+  </script>
+</body>
+</html>

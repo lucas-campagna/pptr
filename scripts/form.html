@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test Form</title></head>
+<body>
+  <h1>Test Form</h1>
+  <form id="testForm" action="?submitted=1" method="GET">
+    <div>
+      <label>Name: <input id="name" type="text" /></label>
+    </div>
+    <div>
+      <label>Email: <input id="email" type="email" /></label>
+    </div>
+    <div>
+      <label><input id="newsletter" type="checkbox" name="newsletter" /> Subscribe to newsletter</label>
+    </div>
+    <div>
+      <label><input type="radio" name="type" id="type-personal" value="personal" /> Personal</label>
+      <label><input type="radio" name="type" id="type-business" value="business" /> Business</label>
+    </div>
+    <div>
+      <label>Country: 
+        <select id="country">
+          <option value="">Select...</option>
+          <option value="us">United States</option>
+          <option value="uk">United Kingdom</option>
+          <option value="ca">Canada</option>
+        </select>
+      </label>
+    </div>
+    <div>
+      <button type="submit">Submit</button>
+    </div>
+  </form>
+</body>
+</html>

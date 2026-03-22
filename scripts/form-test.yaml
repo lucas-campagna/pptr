@@ -1,0 +1,54 @@
+meta:
+  name: "form-test-example"
+  logs: "./output/form-test.log"
+
+vars:
+  TEST_NAME: "John Doe"
+  TEST_EMAIL: "john@example.com"
+  SUBSCRIBE: true
+  ACCOUNT_TYPE: "business"
+  COUNTRY: "us"
+  OUTPUT_DIR: "./output"
+  FORM_PAGE: "file://${PTR_SCRIPT_DIR}/form.html"
+  RESULT_PAGE: "file://${PTR_SCRIPT_DIR}/result.html"
+
+open: ${FORM_PAGE}
+
+actions:
+  - log: "Starting form test automation..."
+
+  - log: "Filling name field"
+  - fill:
+      selector: "#name"
+      text: "${TEST_NAME}"
+
+  - log: "Filling email field"
+  - fill:
+      selector: "#email"
+      text: "${TEST_EMAIL}"
+
+  - log: "Checking newsletter subscription"
+  - click:
+      selector: "#newsletter"
+
+  - log: "Selecting business account type"
+  - click:
+      selector: "#type-business"
+
+  - log: "Selecting country"
+  - select:
+      selector: "#country"
+      value: "${COUNTRY}"
+
+  - log: "Taking screenshot with all fields filled"
+  - screenshot: "${OUTPUT_DIR}/form-filled.png"
+
+  - log: "Submitting form (showing result page)"
+  - open: ${RESULT_PAGE}
+
+  - wait: 500
+
+  - log: "Taking screenshot of result page"
+  - screenshot: "${OUTPUT_DIR}/form-result.png"
+
+  - log: "Form test complete"

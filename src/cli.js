@@ -96,6 +96,7 @@ program
   .option('--log <path>', 'path to log file')
   .option('-v, --var <VAR=VALUE>', 'override variable (can be used multiple times)', collectVars, [])
   .option('-o, --output <path>', 'compile script to standalone shell script')
+  .option('--list-browsers', 'list all detected browser executables and exit')
   .action((scriptPath, subcommands, options) => {
     const rawArgs = process.argv.slice(2);
     let subcommandList = subcommands || [];
@@ -147,13 +148,43 @@ program
       ? runner.runFromString(yamlContent)
       : runner.run(effectiveScriptPath);
 
+    // Add support for --list-browsers option
+    const listBrowsers = options.listBrowsers || false;
+    if (listBrowsers) {
+      try {
+        const BrowserFinder = require('./browser-finder');
+        const list = BrowserFinder.listBrowsers({ platform: process.platform });
+        if (!list || list.length === 0) {
+          console.log('No browsers found on system');
+        } else {
+          console.log('Browsers found:');
+          for (const p of list) console.log(`  - ${p}`);
+        }
+        process.exit(0);
+      } catch (err) {
+        console.error('Failed to list browsers:', err && err.message ? err.message : err);
+        process.exit(1);
+      }
+    }
+
     runPromise
       .then(() => {
         console.log('Script completed successfully');
         process.exit(0);
       })
       .catch((err) => {
-        console.error('Script failed:', err.message);
+        // Provide more actionable messages for browser discovery errors
+        if (err && err.name === 'MultipleFoundError' && Array.isArray(err.found)) {
+          console.error('Error: Multiple browser executables found:');
+          for (const p of err.found) console.error(`  - ${p}`);
+          console.error("Set BROWSER_PATH to the exact executable you want to use, or set AUTO_BROWSER=1 to pick the first automatically.");
+          process.exit(1);
+        } else if (err && err.name === 'InvalidEnvError') {
+          console.error(`Error: invalid BROWSER_PATH: ${err.value}`);
+          process.exit(1);
+        }
+
+        console.error('Script failed:', err && err.message ? err.message : err);
         process.exit(1);
       });
   });

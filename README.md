@@ -68,6 +68,11 @@ pptr <script.yaml> -o <output> [options]
 | `-v, --var <VAR=VALUE>` | Override variable (can use multiple times) |
 | `-o, --output <path>` | Compile script to standalone shell script |
 
+### Environment variables
+
+- `BROWSER_PATH` - if set, must point to a valid browser executable to use instead of the bundled deps.
+- `AUTO_BROWSER` - if set to `1` or `true`, when multiple system browsers are found the first one will be selected automatically. If not set and multiple browsers are found the CLI will fail and list candidates.
+
 ### Examples
 
 ```bash
