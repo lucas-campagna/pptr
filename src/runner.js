@@ -256,15 +256,18 @@ class Runner {
         logger.debug(`Invalid BROWSER_PATH provided: ${err.value}`);
         throw err;
       } else if (err instanceof BrowserFinder.MultipleFoundError) {
-        const auto = (process.env.AUTO_BROWSER || "").toLowerCase();
-        if (auto === "1" || auto === "true") {
-          const choice = err.found[0];
-          logger.debug(
-            `Multiple browsers found; AUTO_BROWSER enabled, selecting: ${choice}`,
-          );
-          launchOptions.executablePath = choice;
+        // Report all found browsers and proceed using the first one.
+        const found = err.found || [];
+        if (found.length > 0) {
+          logger.debug(`Multiple browser executables found: ${found.join(', ')}`);
+          // Make a user-visible report as well
+          console.warn('Multiple browser executables found:');
+          for (const p of found) console.warn(`  - ${p}`);
+          console.warn(`Using the first one: ${found[0]} (set BROWSER_PATH to choose a different one)`);
+          launchOptions.executablePath = found[0];
           usedSystemBrowser = true;
         } else {
+          // No usable entries; rethrow to surface the error
           throw err;
         }
       } else {
@@ -430,15 +433,18 @@ class Runner {
         logger.debug(`Invalid BROWSER_PATH provided: ${err.value}`);
         throw err;
       } else if (err instanceof BrowserFinder.MultipleFoundError) {
-        const auto = (process.env.AUTO_BROWSER || "").toLowerCase();
-        if (auto === "1" || auto === "true") {
-          const choice = err.found[0];
-          logger.debug(
-            `Multiple browsers found; AUTO_BROWSER enabled, selecting: ${choice}`,
-          );
-          launchOptions.executablePath = choice;
+        // Report all found browsers and proceed using the first one.
+        const found = err.found || [];
+        if (found.length > 0) {
+          logger.debug(`Multiple browser executables found: ${found.join(', ')}`);
+          // Make a user-visible report as well
+          console.warn('Multiple browser executables found:');
+          for (const p of found) console.warn(`  - ${p}`);
+          console.warn(`Using the first one: ${found[0]} (set BROWSER_PATH to choose a different one)`);
+          launchOptions.executablePath = found[0];
           usedSystemBrowser = true;
         } else {
+          // No usable entries; rethrow to surface the error
           throw err;
         }
       } else {
