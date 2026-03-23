@@ -492,4 +492,9 @@ module.exports = {
   NotFoundError,
   MultipleFoundError,
   listBrowsers,
+  // exported for unit tests
+  isWSL,
+  checkWslWindowsPaths,
+  isExecutableSync,
+  expandHomeAndEnv,
 };

@@ -20,7 +20,7 @@
   },
   "scripts": {
     "start": "node src/cli.js",
-    "test": "mocha --exit",
+    "test": "mocha --exit --recursive test/unit test/cli.test.js",
     "build": "pkg . --output dist/pptr"
   },
   "keywords": [
