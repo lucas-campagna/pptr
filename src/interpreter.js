@@ -18,6 +18,7 @@ class Interpreter {
     this.scopeDepth = 0;
     this.closureDepth = 0;
     this.subcommands = options.subcommands || [];
+    this.imports = options.imports || {};
   }
 
   async delay(ms) {
@@ -245,8 +246,74 @@ class Interpreter {
       // define loop variables that are only available when their inner
       // actions run. Interpolating nested actions early would substitute
       // placeholders before those runtime variables are set.
-      await this.executeAction(page, action);
+      // Resolve import-style action references like `alias.path.to.x`.
+      const resolved = await this.resolveImportedAction(action);
+      if (Array.isArray(resolved)) {
+        // inline actions list
+        await this.executeActions(page, resolved);
+      } else {
+        await this.executeAction(page, resolved);
+      }
     }
+  }
+
+  // If an action is a reference into an import (key contains dot), resolve
+  // it to either an action list (to inline) or a func invocation action.
+  async resolveImportedAction(action) {
+    // action may be an object like { type: 'func', name: 'foo' } already
+    if (!action || typeof action !== 'object') return action;
+
+    // Some normalized actions have a 'type' key; non-normalized import
+    // referencing actions will arrive as objects with a single key like
+    // 'alias.functions.sum': { x: 1 }
+    if (!action.type && Object.keys(action).length === 1) {
+      const key = Object.keys(action)[0];
+      const val = action[key];
+      if (key.includes('.')) {
+        const [alias, ...rest] = key.split('.');
+        const remainder = rest.join('.');
+        const imported = this.imports[alias];
+        if (!imported) {
+          throw new Error(`Import alias not found: ${alias}`);
+        }
+
+        // Walk remainder path
+        const segments = remainder.split('.');
+        let cursor = imported;
+        for (const seg of segments) {
+          if (cursor && typeof cursor === 'object' && cursor[seg] !== undefined) {
+            cursor = cursor[seg];
+          } else {
+            cursor = undefined;
+            break;
+          }
+        }
+
+        if (cursor === undefined) {
+          throw new Error(`Imported path not found: ${key}`);
+        }
+
+        // If cursor looks like a function definition { params, actions }
+        if (cursor && typeof cursor === 'object' && cursor.params && cursor.actions) {
+          const funcName = remainder.replace(/^functions\./, '');
+          const uniqueName = `__import_${alias}_${funcName}_${Math.random().toString(36).slice(2,8)}`;
+          // register function under a unique name so handleFunc can find it
+          this.functions[uniqueName] = { params: cursor.params, actions: cursor.actions };
+          const provided = val && typeof val === 'object' ? val : {};
+          return { type: 'func', name: uniqueName, args: provided };
+        }
+
+        // If cursor is an actions array (either cursor itself or cursor.actions), inline
+        if (Array.isArray(cursor)) {
+          return JSON.parse(JSON.stringify(cursor));
+        }
+        if (cursor && Array.isArray(cursor.actions)) {
+          return JSON.parse(JSON.stringify(cursor.actions));
+        }
+      }
+    }
+
+    return action;
   }
 
   async executeAction(page, action) {
@@ -370,7 +437,7 @@ class Interpreter {
         break;
 
       case 'return':
-        this.vars.set('$result', action.value);
+        this.vars.set('$result', typeof action.value === 'string' ? this.vars.interpolate(action.value) : action.value);
         throw new Error('RETURN');
 
       case 'input':
@@ -741,7 +808,8 @@ class Interpreter {
     const paramKeys = Object.keys(params);
     for (const key of paramKeys) {
       const value = providedArgs[key] !== undefined ? providedArgs[key] : params[key];
-      this.vars.set(key, value);
+      const setVal = typeof value === 'string' ? this.vars.interpolate(value) : value;
+      this.vars.set(key, setVal);
     }
 
     try {
@@ -815,7 +883,8 @@ class Interpreter {
     const paramKeys = Object.keys(params);
     for (const key of paramKeys) {
       const value = providedArgs[key] !== undefined ? providedArgs[key] : params[key];
-      this.vars.set(key, value);
+      const setVal = typeof value === 'string' ? this.vars.interpolate(value) : value;
+      this.vars.set(key, setVal);
     }
 
     try {

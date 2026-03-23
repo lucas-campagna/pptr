@@ -58,6 +58,21 @@ class VariableEngine {
         return String(this.vars[trimmed]);
       }
 
+      // Attempt to evaluate complex expressions (e.g. 'x + y'). We evaluate
+      // inside a minimal sandbox exposing only the current variables and
+      // process.env via `env` so expressions can reference runtime values.
+      // Try safe expression eval using expression-eval. Fall back silently
+      // to previous behavior if eval fails.
+      try {
+        const { parse, eval: eeval } = require('expression-eval');
+        const ast = parse(trimmed);
+        const context = { ...this.vars, env: process.env };
+        const evaluated = eeval(ast, context);
+        if (evaluated !== undefined) return String(evaluated);
+      } catch (e) {
+        // ignore and fall through to undeclared handling
+      }
+
       // If the variable isn't present, fall back to the declaredVars /
       // allowUndeclared checks and surface a helpful error when appropriate.
       if (!this._allowUndeclared && !this.declaredVars.has(trimmed) && !trimmed.startsWith('_')) {

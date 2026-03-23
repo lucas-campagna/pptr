@@ -204,6 +204,21 @@ class Runner {
     const logger = new Logger(logPath, this.options.debug);
     logger.debug("Initializing Puppeteer");
 
+    // Load imports declared at top-level (before creating VariableEngine)
+    const importsRegistry = {};
+    if (script.import && typeof script.import === 'object') {
+      try {
+        const Importer = require('./importer');
+        const baseDir = path.dirname(scriptPath);
+        // synchronous load is fine because importer may do disk I/O
+        Object.assign(importsRegistry, await Importer.loadImports(script.import, baseDir, { logger }));
+        logger.debug(`Loaded imports: ${Object.keys(importsRegistry).join(', ')}`);
+      } catch (e) {
+        logger.debug(`Failed to load imports: ${e.message}`);
+        throw e;
+      }
+    }
+
     const browserArgs = [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -328,6 +343,7 @@ class Runner {
         logPath,
         debug: this.options.debug,
         subcommands: this.options.subcommands,
+        imports: importsRegistry,
       });
 
       result = await interpreter.run(script);
