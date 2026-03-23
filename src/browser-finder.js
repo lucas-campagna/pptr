@@ -48,11 +48,25 @@ function isWindows() {
   return process.platform === "win32";
 }
 
+function isWSL() {
+  if (process.platform !== "linux") return false;
+  try {
+    const ver = fs.readFileSync("/proc/version", "utf8").toLowerCase();
+    return ver.includes("microsoft") || ver.includes("wsl");
+  } catch (e) {
+    return !!process.env.WSL_DISTRO_NAME;
+  }
+}
+
 function isExecutableSync(p) {
   try {
     const st = fs.statSync(p);
     if (st.isDirectory()) return false;
     if (isWindows()) return true;
+    // In WSL, Windows .exe files live on /mnt/* and may not have the
+    // POSIX execute bit set. Treat .exe files as executable when running
+    // under WSL so we can detect Windows browsers from within WSL.
+    if (isWSL() && String(p).toLowerCase().endsWith(".exe")) return true;
     // POSIX: check execute bit
     fs.accessSync(p, fs.constants.X_OK);
     return true;
@@ -128,6 +142,113 @@ function scanMacApps(appNames) {
   return candidates;
 }
 
+function checkWslWindowsPaths() {
+  const found = [];
+  const mnt = "/mnt";
+  try {
+    const mounts = fs.readdirSync(mnt).map((n) => path.join(mnt, n)).filter((p) => {
+      try {
+        return fs.statSync(p).isDirectory();
+      } catch (e) {
+        return false;
+      }
+    });
+
+    for (const mountPoint of mounts) {
+      const usersDir = path.join(mountPoint, "Users");
+      if (fs.existsSync(usersDir)) {
+        try {
+          const users = fs.readdirSync(usersDir).filter((u) => {
+            try {
+              return fs.statSync(path.join(usersDir, u)).isDirectory();
+            } catch (e) {
+              return false;
+            }
+          });
+          for (const user of users) {
+            found.push(
+              path.join(
+                usersDir,
+                user,
+                "AppData",
+                "Local",
+                "Google",
+                "Chrome",
+                "Application",
+                "chrome.exe",
+              ),
+            );
+            found.push(
+              path.join(
+                usersDir,
+                user,
+                "AppData",
+                "Local",
+                "Programs",
+                "Google",
+                "Chrome",
+                "Application",
+                "chrome.exe",
+              ),
+            );
+            found.push(
+              path.join(
+                usersDir,
+                user,
+                "AppData",
+                "Local",
+                "Microsoft",
+                "Edge",
+                "Application",
+                "msedge.exe",
+              ),
+            );
+            found.push(
+              path.join(
+                usersDir,
+                user,
+                "AppData",
+                "Local",
+                "Programs",
+                "Microsoft",
+                "Edge",
+                "Application",
+                "msedge.exe",
+              ),
+            );
+            found.push(
+              path.join(
+                usersDir,
+                user,
+                "AppData",
+                "Local",
+                "BraveSoftware",
+                "Brave-Browser",
+                "Application",
+                "brave.exe",
+              ),
+            );
+          }
+        } catch (e) {}
+      }
+
+      const programs = [
+        path.join(mountPoint, "Program Files (x86)", "Microsoft", "Edge", "Application", "msedge.exe"),
+        path.join(mountPoint, "Program Files", "Microsoft", "Edge", "Application", "msedge.exe"),
+        path.join(mountPoint, "Program Files (x86)", "Google", "Chrome", "Application", "chrome.exe"),
+        path.join(mountPoint, "Program Files", "Google", "Chrome", "Application", "chrome.exe"),
+        path.join(mountPoint, "Program Files", "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+        path.join(mountPoint, "Program Files (x86)", "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+        path.join(mountPoint, "Program Files", "Mozilla Firefox", "firefox.exe"),
+        path.join(mountPoint, "Program Files (x86)", "Mozilla Firefox", "firefox.exe"),
+      ];
+
+      for (const p of programs) found.push(p);
+    }
+  } catch (e) {}
+  return found;
+}
+
 async function findBrowser(opts = {}) {
   const platform = opts.platform || process.platform;
 
@@ -182,6 +303,10 @@ async function findBrowser(opts = {}) {
       "/var/lib/flatpak/exports/bin",
     ];
     candidates = candidates.concat(checkAbsolutePaths(linuxPaths));
+    if (isWSL()) {
+      // also probe common Windows browser locations mounted under /mnt/* in WSL
+      candidates = candidates.concat(checkAbsolutePaths(checkWslWindowsPaths()));
+    }
   } else if (platform === "darwin") {
     const macAppNames = [
       "Google Chrome.app",
@@ -301,6 +426,9 @@ function listBrowsers(opts = {}) {
       "/var/lib/flatpak/exports/bin",
     ];
     candidates.push(...checkAbsolutePaths(linuxPaths));
+    if (isWSL()) {
+      candidates.push(...checkAbsolutePaths(checkWslWindowsPaths()));
+    }
   } else if (platform === "darwin") {
     const macAppNames = [
       "Google Chrome.app",
