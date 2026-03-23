@@ -20,7 +20,7 @@
   },
   "scripts": {
     "start": "node src/cli.js",
-    "test": "node src/cli.js scripts/example.yaml",
+    "test": "mocha --exit",
     "build": "pkg . --output dist/pptr"
   },
   "keywords": [

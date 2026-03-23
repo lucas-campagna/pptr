@@ -189,8 +189,21 @@ program
       });
   });
 
-program.parse(process.argv);
+// Only run the CLI if this file is executed directly. When required as a
+// module (for tests) we export helper functions instead of invoking the
+// command parser immediately.
+if (require.main === module) {
+  program.parse(process.argv);
 
-if (process.argv.length < 3) {
-  program.help();
+  if (process.argv.length < 3) {
+    program.help();
+  }
 }
+
+// Export helpers for unit tests
+module.exports = {
+  parseVar,
+  collectVars,
+  escapeShell,
+  compile,
+};
