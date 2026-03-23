@@ -59,6 +59,40 @@ jobs:
         run: ls -la dist || true
         shell: bash
 
+      - name: Normalize artifact names (macOS / Linux)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          echo "Normalizing artifacts for ${{ matrix.os }}"
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            if [ -f dist/pptr ]; then
+              mv dist/pptr dist/pptr-macos || cp dist/pptr dist/pptr-macos
+              chmod +x dist/pptr-macos || true
+            fi
+          else
+            # keep linux artifact as-is and also create a linux-specific name
+            if [ -f dist/pptr ]; then
+              cp dist/pptr dist/pptr-linux || true
+            fi
+          fi
+
+      - name: Normalize artifact names (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Write-Host "Normalizing artifacts for Windows"
+          if (Test-Path dist\pptr.exe) {
+            Move-Item dist\pptr.exe dist\pptr-windows.exe -Force
+            Copy-Item dist\pptr-windows.exe dist\pptr-windows -Force
+          } elseif (Test-Path dist\pptr) {
+            Move-Item dist\pptr dist\pptr-windows.exe -Force
+            Copy-Item dist\pptr-windows.exe dist\pptr-windows -Force
+          }
+
+      - name: Show final artifacts
+        run: ls -la dist || true
+        shell: bash
+
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
