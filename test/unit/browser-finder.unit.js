@@ -1,5 +1,4 @@
 const assert = require('assert');
-const proxyquire = require('proxyquire');
 const path = require('path');
 
 describe('browser-finder (unit)', () => {
