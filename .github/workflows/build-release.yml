@@ -1,0 +1,68 @@
+name: Build Release Binaries
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to upload to (optional)'
+        required: false
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-upload:
+    name: Build and upload for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: node18-linux-x64
+          - os: macos-latest
+            target: node18-macos-x64
+          - os: windows-latest
+            target: node18-win-x64
+    env:
+      # Resolve tag name from release event, push tag, or workflow input. Fallback to v1.9.0
+      TAG_NAME: ${{ github.event.release.tag_name || github.ref_name || github.event.inputs.tag || 'v1.9.0' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build binary with pkg
+        run: |
+          echo "Building target: ${{ matrix.target }}"
+          npx pkg . --targets "${{ matrix.target }}" --out-path dist
+        shell: bash
+
+      - name: Show artifacts
+        run: ls -la dist || true
+        shell: bash
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
