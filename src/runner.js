@@ -204,8 +204,6 @@ class Runner {
     const logger = new Logger(logPath, this.options.debug);
     logger.debug("Initializing Puppeteer");
 
-    const chromeDir = await this.ensureDependencies(logger);
-
     const browserArgs = [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -224,66 +222,87 @@ class Runner {
     const { HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy, ...restEnv } =
       process.env;
 
+    // base options (do NOT reference bundled chrome yet)
     const launchOptions = {
       headless: this.options.headless,
       slowMo: meta.slowMo || this.options.slowMo,
       args: browserArgs,
-      executablePath: path.join(chromeDir, "chrome"),
-      env: {
-        ...restEnv,
-        LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
-      },
+      env: { ...restEnv }, // add LD_LIBRARY_PATH only if using bundled deps
       // mirror debug into dumpio so browser stdout/stderr are visible when debugging
       dumpio: !!this.options.debug,
     };
 
-    // Try to resolve system/browser executable if available
+    let chromeDir; // set if/when we need bundled deps
+    let usedSystemBrowser = false;
+    let browser;
+
+    // Try to resolve system/browser executable first (this validates BROWSER_PATH)
     try {
-      const BrowserFinder = require('./browser-finder');
-      // If BROWSER_PATH is set, finder will validate or throw InvalidEnvError
-      const systemBrowser = await BrowserFinder.findBrowser({ platform: process.platform });
+      const BrowserFinder = require("./browser-finder");
+      const systemBrowser = await BrowserFinder.findBrowser({
+        platform: process.platform,
+      });
       if (systemBrowser) {
         logger.debug(`Using system browser executable: ${systemBrowser}`);
         launchOptions.executablePath = systemBrowser;
+        usedSystemBrowser = true;
       }
     } catch (err) {
-      const BrowserFinder = require('./browser-finder');
+      const BrowserFinder = require("./browser-finder");
       if (err instanceof BrowserFinder.NotFoundError) {
-        logger.debug('No system browser found; using bundled dependencies');
-        // keep bundled chrome
+        logger.debug("No system browser found; will use bundled dependencies");
+        // we'll call ensureDependencies() below
       } else if (err instanceof BrowserFinder.InvalidEnvError) {
         logger.debug(`Invalid BROWSER_PATH provided: ${err.value}`);
         throw err;
       } else if (err instanceof BrowserFinder.MultipleFoundError) {
-        const auto = (process.env.AUTO_BROWSER || '').toLowerCase();
-        if (auto === '1' || auto === 'true') {
+        const auto = (process.env.AUTO_BROWSER || "").toLowerCase();
+        if (auto === "1" || auto === "true") {
           const choice = err.found[0];
-          logger.debug(`Multiple browsers found; AUTO_BROWSER enabled, selecting: ${choice}`);
+          logger.debug(
+            `Multiple browsers found; AUTO_BROWSER enabled, selecting: ${choice}`,
+          );
           launchOptions.executablePath = choice;
+          usedSystemBrowser = true;
         } else {
-          // Re-throw to be handled by caller (will cause CLI to print error)
           throw err;
         }
       } else {
-        // unknown error, rethrow
         throw err;
       }
     }
 
-    // Track if we're using a system browser (vs bundled deps)
-    const bundledPath = path.join(chromeDir, 'chrome');
-    let usedSystemBrowser = false;
-    let browser;
+    // If we didn't select a system browser, ensure bundled dependencies exist
+    if (!launchOptions.executablePath) {
+      chromeDir = await this.ensureDependencies(logger);
+      launchOptions.executablePath = path.join(chromeDir, "chrome");
+      launchOptions.env = {
+        ...restEnv,
+        LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
+      };
+      usedSystemBrowser = false;
+    }
 
     // Try launching; if system browser was selected and launch fails, fallback to bundled deps
     try {
       browser = await puppeteer.launch(launchOptions);
-      usedSystemBrowser = launchOptions.executablePath !== bundledPath;
+      const currentBundledPath = chromeDir
+        ? path.join(chromeDir, "chrome")
+        : path.join(this.getDepsDir(), "chrome");
+      usedSystemBrowser = launchOptions.executablePath !== currentBundledPath;
     } catch (err) {
       // if we attempted system browser, fallback to bundled
-      if (launchOptions.executablePath !== bundledPath) {
-        logger.debug(`System browser launch failed (${launchOptions.executablePath}), falling back to bundled deps: ${err.message}`);
-        launchOptions.executablePath = bundledPath;
+      if (launchOptions.executablePath && (!chromeDir || launchOptions.executablePath !== path.join(chromeDir, "chrome"))) {
+        logger.debug(
+          `System browser launch failed (${launchOptions.executablePath}), falling back to bundled deps: ${err.message}`,
+        );
+        // make sure bundled deps are ready before retrying
+        chromeDir = chromeDir || (await this.ensureDependencies(logger));
+        launchOptions.executablePath = path.join(chromeDir, "chrome");
+        launchOptions.env = {
+          ...restEnv,
+          LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
+        };
         browser = await puppeteer.launch(launchOptions);
         usedSystemBrowser = false;
       } else {
@@ -293,7 +312,7 @@ class Runner {
 
     // Attach disconnect listener for diagnostic logging
     try {
-      browser.on('disconnected', () => logger.debug('Browser disconnected'));
+      browser.on("disconnected", () => logger.debug("Browser disconnected"));
     } catch (e) {}
 
     let result;
@@ -311,9 +330,14 @@ class Runner {
       result = await interpreter.run(script);
     } catch (err) {
       // If system browser was used and we get a "Target closed" protocol error, retry with bundled deps
-      const isTargetClosed = err && typeof err.message === 'string' && err.message.includes('Target closed');
+      const isTargetClosed =
+        err &&
+        typeof err.message === "string" &&
+        err.message.includes("Target closed");
       if (usedSystemBrowser && isTargetClosed) {
-        logger.debug('System browser closed during run; retrying with bundled dependencies');
+        logger.debug(
+          "System browser closed during run; retrying with bundled dependencies",
+        );
         try {
           await browser.close();
         } catch (e) {}
@@ -356,8 +380,6 @@ class Runner {
     const logger = new Logger(logPath, this.options.debug);
     logger.debug("Initializing Puppeteer");
 
-    const chromeDir = await this.ensureDependencies(logger);
-
     const browserArgs = [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -376,38 +398,46 @@ class Runner {
     const { HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy, ...restEnv } =
       process.env;
 
+    // base options (do NOT reference bundled chrome yet)
     const launchOptions = {
       headless: this.options.headless,
       slowMo: meta.slowMo || this.options.slowMo,
       args: browserArgs,
-      executablePath: path.join(chromeDir, "chrome"),
-      env: {
-        ...restEnv,
-        LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
-      },
+      env: { ...restEnv }, // add LD_LIBRARY_PATH only if using bundled deps
+      dumpio: !!this.options.debug,
     };
 
-    // Try to resolve system/browser executable if available (same logic as run())
+    let chromeDir;
+    let usedSystemBrowser = false;
+    let browser;
+
+    // Try to resolve system/browser executable first (this validates BROWSER_PATH)
     try {
-      const BrowserFinder = require('./browser-finder');
-      const systemBrowser = await BrowserFinder.findBrowser({ platform: process.platform });
+      const BrowserFinder = require("./browser-finder");
+      const systemBrowser = await BrowserFinder.findBrowser({
+        platform: process.platform,
+      });
       if (systemBrowser) {
         logger.debug(`Using system browser executable: ${systemBrowser}`);
         launchOptions.executablePath = systemBrowser;
+        usedSystemBrowser = true;
       }
     } catch (err) {
-      const BrowserFinder = require('./browser-finder');
+      const BrowserFinder = require("./browser-finder");
       if (err instanceof BrowserFinder.NotFoundError) {
-        logger.debug('No system browser found; using bundled dependencies');
+        logger.debug("No system browser found; will use bundled dependencies");
       } else if (err instanceof BrowserFinder.InvalidEnvError) {
         logger.debug(`Invalid BROWSER_PATH provided: ${err.value}`);
         throw err;
       } else if (err instanceof BrowserFinder.MultipleFoundError) {
-        const auto = (process.env.AUTO_BROWSER || '').toLowerCase();
-        if (auto === '1' || auto === 'true') {
+        const auto = (process.env.AUTO_BROWSER || "").toLowerCase();
+        if (auto === "1" || auto === "true") {
           const choice = err.found[0];
-          logger.debug(`Multiple browsers found; AUTO_BROWSER enabled, selecting: ${choice}`);
+          logger.debug(
+            `Multiple browsers found; AUTO_BROWSER enabled, selecting: ${choice}`,
+          );
           launchOptions.executablePath = choice;
+          usedSystemBrowser = true;
         } else {
           throw err;
         }
@@ -416,7 +446,37 @@ class Runner {
       }
     }
 
-    const browser = await puppeteer.launch(launchOptions);
+    // If we didn't select a system browser, ensure bundled dependencies exist
+    if (!launchOptions.executablePath) {
+      chromeDir = await this.ensureDependencies(logger);
+      launchOptions.executablePath = path.join(chromeDir, "chrome");
+      launchOptions.env = {
+        ...restEnv,
+        LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
+      };
+      usedSystemBrowser = false;
+    }
+
+    // Try launching; if system browser was selected and launch fails, fallback to bundled deps
+    try {
+      browser = await puppeteer.launch(launchOptions);
+    } catch (err) {
+      if (launchOptions.executablePath && (!chromeDir || launchOptions.executablePath !== path.join(chromeDir, "chrome"))) {
+        logger.debug(
+          `System browser launch failed (${launchOptions.executablePath}), falling back to bundled deps: ${err.message}`,
+        );
+        chromeDir = chromeDir || (await this.ensureDependencies(logger));
+        launchOptions.executablePath = path.join(chromeDir, "chrome");
+        launchOptions.env = {
+          ...restEnv,
+          LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
+        };
+        browser = await puppeteer.launch(launchOptions);
+        usedSystemBrowser = false;
+      } else {
+        throw err;
+      }
+    }
 
     let result;
     try {
