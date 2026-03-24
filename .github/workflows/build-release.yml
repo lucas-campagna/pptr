@@ -9,6 +9,9 @@ on:
         description: 'Release tag to upload to (optional)'
         required: false
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build artifacts for ${{ matrix.os }}
@@ -25,9 +28,6 @@ jobs:
           - os: windows-latest
             target: node18-win-x64
             artifact: pptr-windows
-    env:
-      # Resolve tag name from release event, workflow input, or push ref. Fallback to v1.9.0
-      TAG_NAME: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name || 'v1.9.0' }}
 
     steps:
       - name: Checkout
@@ -37,14 +37,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-
-      - name: Cache npm
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
 
       - name: Install dependencies
         run: npm ci
@@ -58,7 +50,7 @@ jobs:
       - name: Show artifacts
         run: |
           npx pkg --version || true
-          echo "Node: $(node -v)" || true
+          echo "Node: $(node -v)"
           echo "Listing dist contents"
           ls -la dist || true
           if [ -d dist ]; then
@@ -146,8 +138,6 @@ jobs:
     needs: build
     permissions:
       contents: write
-    env:
-      TAG_NAME: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name || 'v1.9.0' }}
     steps:
       - name: Download linux artifact
         uses: actions/download-artifact@v4
@@ -199,15 +189,15 @@ jobs:
 
       - name: Debug: show release-files
         run: |
-          echo "TAG_NAME=${TAG_NAME}"
+          echo "TAG_NAME=${{ github.event.release.tag_name || github.event.inputs.tag }}"
           ls -la release-files || true
         shell: bash
 
       - name: Create GitHub release and upload assets
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ env.TAG_NAME }}
-          name: ${{ env.TAG_NAME }}
+          tag: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          name: ${{ github.event.release.tag_name || github.event.inputs.tag }}
           files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
