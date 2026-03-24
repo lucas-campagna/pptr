@@ -1,0 +1,5 @@
+- open: https://institutoatlantico148513.rm.cloudtotvs.com.br/FrameHTML/web/app/RH/PortalMeuRH/#/login
+- wait:
+    selector: //*[contains(text(),  "Welcome to My HR!")]
+    timeout: 30_000
+- screenshot: /mnt/c/Users/CaLu150/Downloads/meuponto.png

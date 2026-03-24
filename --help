@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -e
+
+if ! command -v pptr &> /dev/null; then
+    echo "Error: 'pptr' not found in PATH"
+    echo "Make sure pptr is installed and available in your PATH"
+    exit 1
+fi
+
+exec pptr -e 'meta: {}
+vars: {}
+open: null
+functions: {}
+actions:
+  - type: open
+    url: >-
+      https://institutoatlantico148513.rm.cloudtotvs.com.br/FrameHTML/web/app/RH/PortalMeuRH/#/login
+  - type: wait
+    selector: //*[contains(text(),  "Welcome to My HR!")]
+    timeout: 30000
+  - type: screenshot
+    path: /mnt/c/Users/CaLu150/Downloads/meuponto.png
+tabs: []
+subcommands: {}
+' -d "$@"

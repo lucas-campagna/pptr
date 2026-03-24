@@ -59,7 +59,17 @@ jobs:
         shell: bash
 
       - name: Show artifacts
-        run: ls -la dist || true
+        run: |
+          npx pkg --version || true
+          echo "Node: $(node -v)" || true
+          echo "Listing dist contents"
+          ls -la dist || true
+          if [ -d dist ]; then
+            for f in dist/*; do
+              echo "--- $f ---"
+              file "$f" || true
+            done
+          fi
         shell: bash
 
       - name: Normalize artifact names (macOS / Linux)
@@ -67,16 +77,38 @@ jobs:
         shell: bash
         run: |
           echo "Normalizing artifacts for ${{ matrix.os }}"
+          set -e
+          shopt -s nullglob || true
+          if [ ! -d dist ]; then
+            echo "dist directory missing"
+            exit 0
+          fi
+          files=(dist/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "no artifacts found in dist"
+            exit 0
+          fi
+          chosen=""
+          # prefer Mach-O on macOS, ELF on linux
+          for f in "${files[@]}"; do
+            if file "$f" | grep -q "Mach-O" && [ "${{ matrix.os }}" = "macos-latest" ]; then
+              chosen="$f"; break
+            fi
+            if file "$f" | grep -q "ELF" && [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+              chosen="$f"; break
+            fi
+          done
+          if [ -z "$chosen" ]; then
+            echo "Preferred file type not found; falling back to first artifact"
+            chosen=${files[0]}
+          fi
+          echo "Chosen artifact: $chosen"
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            if [ -f dist/pptr ]; then
-              mv dist/pptr dist/pptr-macos || cp dist/pptr dist/pptr-macos
-              chmod +x dist/pptr-macos || true
-            fi
+            cp "$chosen" dist/pptr-macos || mv "$chosen" dist/pptr-macos || true
+            chmod +x dist/pptr-macos || true
           else
-            # keep linux artifact as-is and also create a linux-specific name
-            if [ -f dist/pptr ]; then
-              cp dist/pptr dist/pptr-linux || true
-            fi
+            cp "$chosen" dist/pptr-linux || true
+            chmod +x dist/pptr-linux || true
           fi
 
       - name: Normalize artifact names (Windows)
@@ -84,13 +116,22 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Normalizing artifacts for Windows"
-          if (Test-Path dist\pptr.exe) {
-            Move-Item dist\pptr.exe dist\pptr-windows.exe -Force
-            Copy-Item dist\pptr-windows.exe dist\pptr-windows -Force
-          } elseif (Test-Path dist\pptr) {
-            Move-Item dist\pptr dist\pptr-windows.exe -Force
-            Copy-Item dist\pptr-windows.exe dist\pptr-windows -Force
+          $dist = Get-ChildItem -Path dist -File -ErrorAction SilentlyContinue
+          if (-not $dist) {
+            Write-Host "No artifacts found in dist"
+            exit 0
           }
+          # prefer .exe if present
+          $exe = $dist | Where-Object { $_.Name -like '*.exe' } | Select-Object -First 1
+          if ($exe) {
+            $chosen = $exe.FullName
+          } else {
+            $chosen = $dist[0].FullName
+          }
+          Write-Host "Chosen artifact: $chosen"
+          $destExe = Join-Path -Path 'dist' -ChildPath 'pptr-windows.exe'
+          Move-Item $chosen -Destination $destExe -Force
+          Copy-Item $destExe 'dist\pptr-windows' -Force
 
       - name: Show final artifacts
         run: ls -la dist || true
