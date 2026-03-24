@@ -159,10 +159,17 @@ jobs:
           fi
         shell: bash
 
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v1
+      - name: Debug: show release-files
+        run: |
+          echo "TAG_NAME=${TAG_NAME}"
+          ls -la release-files || true
+        shell: bash
+
+      - name: Create GitHub release and upload assets
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ env.TAG_NAME }}
+          tag: ${{ env.TAG_NAME }}
+          name: ${{ env.TAG_NAME }}
           files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
