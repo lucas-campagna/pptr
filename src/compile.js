@@ -6,21 +6,36 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+function generateUniqueName(existingObj, base) {
+  let name = base;
+  let i = 1;
+  while (existingObj && existingObj[name]) {
+    name = `${base}_${i++}`;
+  }
+  return name;
+}
+
+// Merge imported functions into compiledDoc and return a mapping of original import keys
+// to the new (possibly prefixed) function names. The mapping keys are like
+// 'alias.functions.fnName' and 'alias.fnName' (both supported).
 function mergeImportedFunctions(compiledDoc, importsRegistry) {
+  const nameMap = {};
   compiledDoc.functions = compiledDoc.functions || {};
   for (const [alias, imported] of Object.entries(importsRegistry || {})) {
     if (!imported || typeof imported !== 'object') continue;
     const funcs = imported.functions || {};
     for (const [name, def] of Object.entries(funcs)) {
-      if (compiledDoc.functions[name]) {
-        throw new Error(`Function name conflict when inlining imports: '${name}' already defined in importing script`);
-      }
-      compiledDoc.functions[name] = deepClone(def);
+      const pref = `${alias}_${name}`;
+      const newName = generateUniqueName(compiledDoc.functions, pref);
+      compiledDoc.functions[newName] = deepClone(def);
+      nameMap[`${alias}.functions.${name}`] = newName;
+      nameMap[`${alias}.${name}`] = newName;
     }
   }
+  return nameMap;
 }
 
-function flattenActions(actions, importsRegistry, compiledDoc) {
+function flattenActions(actions, importsRegistry, compiledDoc, nameMap = {}) {
   const out = [];
 
   for (const action of actions || []) {
@@ -55,11 +70,20 @@ function flattenActions(actions, importsRegistry, compiledDoc) {
           if (cursor && typeof cursor === 'object' && cursor.params && cursor.actions) {
             const idx = rest[0] === 'functions' ? 1 : 0;
             const functionName = rest.slice(idx).join('.');
-            compiledDoc.functions = compiledDoc.functions || {};
-            if (!compiledDoc.functions[functionName]) {
-              compiledDoc.functions[functionName] = deepClone(cursor);
+            // map to prefixed name if available
+            const key1 = `${alias}.functions.${functionName}`;
+            const key2 = `${alias}.${functionName}`;
+            const mapped = nameMap[key1] || nameMap[key2];
+            let finalName = mapped;
+            if (!finalName) {
+              // if not present, register now using alias_ convention
+              const pref = `${alias}_${functionName}`;
+              finalName = generateUniqueName(compiledDoc.functions, pref);
+              compiledDoc.functions[finalName] = deepClone(cursor);
+              nameMap[key1] = finalName;
+              nameMap[key2] = finalName;
             }
-            out.push({ type: 'func', name: functionName, args: {} });
+            out.push({ type: 'func', name: finalName, args: {} });
             continue;
           }
           out.push(deepClone(cursor));
@@ -132,13 +156,19 @@ function flattenActions(actions, importsRegistry, compiledDoc) {
           if (!functionName) {
             throw new Error(`Invalid function reference: ${key}`);
           }
-          // ensure function is present in compiledDoc (mergeImportedFunctions should have copied, but be defensive)
-          compiledDoc.functions = compiledDoc.functions || {};
-          if (!compiledDoc.functions[functionName]) {
-            compiledDoc.functions[functionName] = deepClone(cursor);
+          const key1 = `${alias}.functions.${functionName}`;
+          const key2 = `${alias}.${functionName}`;
+          const mapped = nameMap[key1] || nameMap[key2];
+          let finalName = mapped;
+          if (!finalName) {
+            const pref = `${alias}_${functionName}`;
+            finalName = generateUniqueName(compiledDoc.functions, pref);
+            compiledDoc.functions[finalName] = deepClone(cursor);
+            nameMap[key1] = finalName;
+            nameMap[key2] = finalName;
           }
           // create normalized func invocation
-          const call = { type: 'func', name: functionName, args: deepClone(val || {}) };
+          const call = { type: 'func', name: finalName, args: deepClone(val || {}) };
           out.push(call);
           continue;
         }
@@ -179,17 +209,17 @@ function inlineImports(doc, importsRegistry) {
 
   compiled.functions = compiled.functions || {};
 
-  // merge imported functions (fail on conflict)
-  mergeImportedFunctions(compiled, importsRegistry);
+  // merge imported functions (auto-prefix to avoid conflicts)
+  const nameMap = mergeImportedFunctions(compiled, importsRegistry);
 
   // process top-level actions
-  if (Array.isArray(compiled.actions)) compiled.actions = flattenActions(compiled.actions, importsRegistry, compiled);
+  if (Array.isArray(compiled.actions)) compiled.actions = flattenActions(compiled.actions, importsRegistry, compiled, nameMap);
 
   // process functions bodies
   if (compiled.functions && typeof compiled.functions === 'object') {
     for (const [name, fn] of Object.entries(compiled.functions)) {
       if (fn && Array.isArray(fn.actions)) {
-        fn.actions = flattenActions(fn.actions, importsRegistry, compiled);
+        fn.actions = flattenActions(fn.actions, importsRegistry, compiled, nameMap);
       }
     }
   }
@@ -198,7 +228,7 @@ function inlineImports(doc, importsRegistry) {
   if (Array.isArray(compiled.tabs)) {
     compiled.tabs = compiled.tabs.map(tab => {
       const t = deepClone(tab);
-      if (Array.isArray(t.actions)) t.actions = flattenActions(t.actions, importsRegistry, compiled);
+      if (Array.isArray(t.actions)) t.actions = flattenActions(t.actions, importsRegistry, compiled, nameMap);
       return t;
     });
   }
@@ -207,10 +237,10 @@ function inlineImports(doc, importsRegistry) {
   function recurseSubcommands(map) {
     if (!map || typeof map !== 'object') return;
     for (const [k, v] of Object.entries(map)) {
-      if (v && Array.isArray(v.actions)) v.actions = flattenActions(v.actions, importsRegistry, compiled);
+      if (v && Array.isArray(v.actions)) v.actions = flattenActions(v.actions, importsRegistry, compiled, nameMap);
       if (v && v.functions) {
         for (const [fnName, fnDef] of Object.entries(v.functions)) {
-          if (fnDef && Array.isArray(fnDef.actions)) fnDef.actions = flattenActions(fnDef.actions, importsRegistry, compiled);
+          if (fnDef && Array.isArray(fnDef.actions)) fnDef.actions = flattenActions(fnDef.actions, importsRegistry, compiled, nameMap);
         }
       }
       if (v && v.subcommands) recurseSubcommands(v.subcommands);
