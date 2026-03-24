@@ -29,8 +29,8 @@ jobs:
             target: node18-win-x64
             artifact: pptr-windows
     env:
-      # Resolve tag name from release event, push tag, or workflow input. Fallback to v1.9.0
-      TAG_NAME: ${{ github.event.release.tag_name || github.ref_name || github.event.inputs.tag || 'v1.9.0' }}
+      # Resolve tag name from release event, workflow input, or push ref. Fallback to v1.9.0
+      TAG_NAME: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name || 'v1.9.0' }}
 
     steps:
       - name: Checkout
@@ -106,26 +106,28 @@ jobs:
     name: Publish release assets
     runs-on: ubuntu-latest
     needs: build
+    permissions:
+      contents: write
     env:
-      TAG_NAME: ${{ github.event.release.tag_name || github.ref_name || github.event.inputs.tag || 'v1.9.0' }}
+      TAG_NAME: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name || 'v1.9.0' }}
     steps:
       - name: Download linux artifact
         uses: actions/download-artifact@v4
         with:
           name: pptr-linux
-          path: artifacts/linux || true
+          path: artifacts/linux
 
       - name: Download macos artifact
         uses: actions/download-artifact@v4
         with:
           name: pptr-macos
-          path: artifacts/macos || true
+          path: artifacts/macos
 
       - name: Download windows artifact
         uses: actions/download-artifact@v4
         with:
           name: pptr-windows
-          path: artifacts/windows || true
+          path: artifacts/windows
 
       - name: Prepare release files
         run: |
