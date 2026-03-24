@@ -78,7 +78,6 @@ async function compile(scriptPath, options) {
   let outPath = outputPath;
   const outExt = path.extname(outPath).toLowerCase();
   let wrapper = options && options.wrapper ? options.wrapper : 'auto';
-  if (wrapper === 'auto') wrapper = 'bash';
   if (outExt === '.ps1') {
     wrapper = 'powershell';
   } else if (outExt === '.bat' || outExt === '.cmd') {
@@ -91,11 +90,10 @@ async function compile(scriptPath, options) {
       if (process.platform === 'win32') {
         wrapper = 'powershell';
         if (!outExt) outPath = `${outPath}.ps1`;
-      } else if (process.platform === 'darwin') {
-        wrapper = 'bash';
-        if (!outExt) outPath = `${outPath}.command`;
       } else {
+        // default to bash on macOS and Linux
         wrapper = 'bash';
+        if (!outExt && process.platform === 'darwin') outPath = `${outPath}.command`;
       }
     }
   }
