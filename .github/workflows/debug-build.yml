@@ -1,0 +1,57 @@
+name: Debug Build Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'pkg target (optional)'
+        required: false
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Show environment
+        run: |
+          echo "Runner: $RUNNER_OS"
+          echo "Node: $(node -v)"
+          echo "npm: $(npm -v)"
+          npx pkg --version || true
+
+      - name: Build binary with pkg (diagnostic)
+        run: |
+          set -e
+          TARGET=${{ github.event.inputs.target }}
+          if [ -z "$TARGET" ]; then
+            TARGET=node18-linux-x64
+          fi
+          echo "Using target: $TARGET"
+          npx pkg . --targets "$TARGET" --out-path dist || true
+
+      - name: Show dist contents (diagnostic)
+        run: |
+          echo "Listing dist contents"
+          ls -la dist || true
+          if [ -d dist ]; then
+            for f in dist/*; do
+              echo "--- $f ---"
+              file "$f" || true
+            done
+          fi
+
+      - name: Archive dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-dist
+          path: dist
