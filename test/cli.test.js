@@ -27,6 +27,9 @@ describe('CLI', () => {
       const res = await runCli(['-o', tmp, 'scripts/example.yaml']);
       expect(res.code).toBe(0);
       expect(fs.existsSync(tmp)).toBeTruthy();
+      // verify compiled script contains an inlined action from example.yaml
+      const out = fs.readFileSync(tmp, 'utf-8');
+      expect(/Starting automation.../.test(out) || /Starting automation\.{3}/.test(out)).toBeTruthy();
     } finally {
       try { fs.unlinkSync(tmp); } catch (e) {}
     }

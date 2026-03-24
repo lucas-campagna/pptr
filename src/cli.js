@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { Command } = require('commander');
 const Runner = require('./runner');
+const Compile = require('./compile');
 
 const version = process.env.PPTR_VERSION || require('../package.json').version || '1.0.0';
 
@@ -33,21 +34,27 @@ function escapeShell(str) {
   return str.replace(/'/g, "'\\''");
 }
 
-function compile(scriptPath, options) {
-  let yamlContent;
-
-  if (options.execute) {
-    yamlContent = options.execute;
-  } else {
-    const resolvedPath = path.resolve(scriptPath);
-    if (!fs.existsSync(resolvedPath)) {
-      console.error(`Error: Script file not found: ${resolvedPath}`);
-      process.exit(1);
-    }
-    yamlContent = fs.readFileSync(resolvedPath, 'utf-8');
-  }
-
+async function compile(scriptPath, options) {
   const outputPath = path.resolve(options.output);
+
+  const baseDir = options.execute ? process.cwd() : path.dirname(path.resolve(scriptPath || '.'));
+  let finalYaml;
+  try {
+    if (options.execute) {
+      finalYaml = await Compile.compileYamlString(options.execute, baseDir);
+    } else {
+      const resolvedPath = path.resolve(scriptPath);
+      if (!fs.existsSync(resolvedPath)) {
+        console.error(`Error: Script file not found: ${resolvedPath}`);
+        process.exit(1);
+      }
+      const content = fs.readFileSync(resolvedPath, 'utf-8');
+      finalYaml = await Compile.compileYamlString(content, baseDir);
+    }
+  } catch (e) {
+    console.error('Failed to compile script:', e && e.message ? e.message : e);
+    process.exit(1);
+  }
 
   const defaultVars = [];
   if (options.var) {
@@ -63,7 +70,7 @@ function compile(scriptPath, options) {
   const defaultArgs = [headlessFlag, debugFlag, logFlag].filter(Boolean).join(' ');
   const varArgs = defaultVars.join(' ');
 
-  const escapedYaml = escapeShell(yamlContent);
+  const escapedYaml = escapeShell(finalYaml);
 
   const shellScript = `#!/usr/bin/env bash
 set -e
@@ -123,7 +130,8 @@ program
     }
 
     if (options.output) {
-      compile(effectiveScriptPath, options);
+      // compile may be async now
+      compile(effectiveScriptPath, options).then(() => process.exit(0));
       return;
     }
 
