@@ -184,7 +184,7 @@ jobs:
           fi
         shell: bash
 
-      - name: Debug: show release-files
+      - name: "Debug: show release-files"
         run: |
           echo "TAG_NAME=${{ github.event.release.tag_name }}"
           ls -la release-files || true
