@@ -18,32 +18,89 @@ jobs:
     name: Publish artifacts to release
     runs-on: ubuntu-latest
     steps:
-      - name: Download linux artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: pptr-linux
-          path: artifacts/linux
-          run-id: ${{ github.event.inputs.run_id }}
-
-      - name: Download macos artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: pptr-macos
-          path: artifacts/macos
-          run-id: ${{ github.event.inputs.run_id }}
-
-      - name: Download windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: pptr-windows
-          path: artifacts/windows
-          run-id: ${{ github.event.inputs.run_id }}
-
-      - name: Prepare release files
+      - name: Prepare environment
         run: |
-          set -e
-          mkdir -p release-files
-          cp -r artifacts/* release-files/ 2>/dev/null || true
+          set -euo pipefail
+          mkdir -p artifacts tmp release-files
+          apt-get update -qq
+          apt-get install -y -qq jq unzip curl || true
+        shell: bash
+
+      - name: Fetch artifact list for run
+        id: list
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          RUN_ID="${{ github.event.inputs.run_id }}"
+          echo "Querying artifacts for run $RUN_ID"
+          curl -sS -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/artifacts" > tmp/artifacts.json
+          jq -r '.artifacts[] | "name=\(.name) id=\(.id)"' tmp/artifacts.json > tmp/artifact-list.txt || true
+          echo "artifact-list<<EOF" >> $GITHUB_OUTPUT
+          cat tmp/artifact-list.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Download and extract artifacts
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          RUN_ID="${{ github.event.inputs.run_id }}"
+          names=(pptr-linux pptr-macos pptr-windows)
+          for name in "${names[@]}"; do
+            id=$(jq -r --arg n "$name" '.artifacts[] | select(.name==$n) | .id' tmp/artifacts.json || true)
+            if [ -z "$id" ] || [ "$id" = "null" ]; then
+              echo "Artifact $name not found for run $RUN_ID, skipping"
+              continue
+            fi
+            url="https://api.github.com/repos/$REPO/actions/artifacts/$id/zip"
+            out="artifacts/${name}.zip"
+            echo "Downloading $name (id=$id) to $out"
+            # retry download a few times because downloads occasionally fail
+            n=0
+            until [ $n -ge 5 ]; do
+              if curl -L -sS -H "Authorization: token $GITHUB_TOKEN" -o "$out" "$url"; then
+                break
+              fi
+              n=$((n+1))
+              echo "download failed, retry #$n"
+              sleep 2
+            done
+            if [ ! -f "$out" ]; then
+              echo "Failed to download $name after retries, skipping"
+              continue
+            fi
+            mkdir -p "artifacts/${name}_unzipped"
+            unzip -o "$out" -d "artifacts/${name}_unzipped" >/dev/null || true
+            # find first file in the unzipped dir
+            candidate=$(find "artifacts/${name}_unzipped" -type f -maxdepth 3 | head -n1 || true)
+            if [ -z "$candidate" ]; then
+              echo "No extracted files for $name, skipping"
+              continue
+            fi
+            echo "Found extracted file: $candidate"
+            case "$name" in
+              pptr-macos)
+                cp "$candidate" release-files/pptr-macos
+                chmod +x release-files/pptr-macos || true
+                ;;
+              pptr-windows)
+                base=$(basename "$candidate")
+                # prefer .exe naming
+                if [[ "$base" == *.exe ]]; then
+                  cp "$candidate" release-files/pptr-windows.exe
+                  cp release-files/pptr-windows.exe release-files/pptr-windows || true
+                else
+                  cp "$candidate" release-files/pptr-windows
+                fi
+                ;;
+              pptr-linux)
+                cp "$candidate" release-files/pptr-linux
+                chmod +x release-files/pptr-linux || true
+                ;;
+            esac
+          done
           ls -la release-files || true
         shell: bash
 
