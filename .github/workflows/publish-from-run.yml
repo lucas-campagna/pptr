@@ -22,8 +22,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts tmp release-files
-          apt-get update -qq
-          apt-get install -y -qq jq unzip curl || true
+          # rely on preinstalled tools (curl, python3). Avoid apt-get which requires sudo.
+          python3 --version || true
+          curl --version || true
         shell: bash
 
       - name: Fetch artifact list for run
@@ -36,7 +37,14 @@ jobs:
           curl -sS -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/artifacts" > tmp/artifacts.json
-          jq -r '.artifacts[] | "name=\(.name) id=\(.id)"' tmp/artifacts.json > tmp/artifact-list.txt || true
+          python3 - <<'PY' > tmp/artifact-list.txt
+import json
+obj=json.load(open('tmp/artifacts.json'))
+out=[]
+for a in obj.get('artifacts',[]):
+    out.append(f"name={a.get('name')} id={a.get('id')}")
+print('\n'.join(out))
+PY
           echo "artifact-list<<EOF" >> $GITHUB_OUTPUT
           cat tmp/artifact-list.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -49,7 +57,9 @@ jobs:
           RUN_ID="${{ github.event.inputs.run_id }}"
           names=(pptr-linux pptr-macos pptr-windows)
           for name in "${names[@]}"; do
-            id=$(jq -r --arg n "$name" '.artifacts[] | select(.name==$n) | .id' tmp/artifacts.json || true)
+            id=$(python3 -c "import json,sys
+j=json.load(open('tmp/artifacts.json'))
+print(next((a['id'] for a in j.get('artifacts',[]) if a['name']==sys.argv[1]),''))" "$name")
             if [ -z "$id" ] || [ "$id" = "null" ]; then
               echo "Artifact $name not found for run $RUN_ID, skipping"
               continue
@@ -57,7 +67,6 @@ jobs:
             url="https://api.github.com/repos/$REPO/actions/artifacts/$id/zip"
             out="artifacts/${name}.zip"
             echo "Downloading $name (id=$id) to $out"
-            # retry download a few times because downloads occasionally fail
             n=0
             until [ $n -ge 5 ]; do
               if curl -L -sS -H "Authorization: token $GITHUB_TOKEN" -o "$out" "$url"; then
@@ -72,8 +81,13 @@ jobs:
               continue
             fi
             mkdir -p "artifacts/${name}_unzipped"
-            unzip -o "$out" -d "artifacts/${name}_unzipped" >/dev/null || true
-            # find first file in the unzipped dir
+            python3 - <<PY
+import zipfile,sys
+zipf=sys.argv[1]
+dst=sys.argv[2]
+with zipfile.ZipFile(zipf) as z:
+    z.extractall(dst)
+PY "$out" "artifacts/${name}_unzipped"
             candidate=$(find "artifacts/${name}_unzipped" -type f -maxdepth 3 | head -n1 || true)
             if [ -z "$candidate" ]; then
               echo "No extracted files for $name, skipping"
@@ -87,7 +101,6 @@ jobs:
                 ;;
               pptr-windows)
                 base=$(basename "$candidate")
-                # prefer .exe naming
                 if [[ "$base" == *.exe ]]; then
                   cp "$candidate" release-files/pptr-windows.exe
                   cp release-files/pptr-windows.exe release-files/pptr-windows || true
