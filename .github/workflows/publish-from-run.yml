@@ -1,0 +1,57 @@
+name: Publish Artifacts From Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Workflow run ID that produced the artifacts'
+        required: true
+      tag:
+        description: 'Release tag to upload to'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Publish artifacts to release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pptr-linux
+          path: artifacts/linux
+          run-id: ${{ github.event.inputs.run_id }}
+
+      - name: Download macos artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pptr-macos
+          path: artifacts/macos
+          run-id: ${{ github.event.inputs.run_id }}
+
+      - name: Download windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pptr-windows
+          path: artifacts/windows
+          run-id: ${{ github.event.inputs.run_id }}
+
+      - name: Prepare release files
+        run: |
+          set -e
+          mkdir -p release-files
+          cp -r artifacts/* release-files/ 2>/dev/null || true
+          ls -la release-files || true
+        shell: bash
+
+      - name: Create GitHub release and upload assets
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.event.inputs.tag }}
+          name: ${{ github.event.inputs.tag }}
+          files: release-files/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
