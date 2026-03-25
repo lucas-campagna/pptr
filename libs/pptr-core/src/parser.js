@@ -17,7 +17,6 @@ class Parser {
       throw new Error('Empty script');
     }
 
-    // support top-level import map (kept for loader/interpreter to process)
     if (doc.import && typeof doc.import !== 'object') {
       throw new Error('import section must be a mapping of alias -> path');
     }

@@ -3,13 +3,14 @@
   "private": true,
   "version": "1.9.2",
   "workspaces": [
-    "packages/*"
+    "app/*",
+    "lib/*"
   ],
   "description": "Monorepo for pptr (CLI + core)",
   "scripts": {
     "bootstrap": "npm ci",
     "test": "jest --runInBand",
-    "build": "echo \"Build individual packages with their scripts (see packages/pptr)\""
+    "build": "echo \"Build individual packages with their scripts (see app/pptr)\""
   },
   "devDependencies": {
     "jest": "^29.6.1"

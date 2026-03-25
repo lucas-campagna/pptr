@@ -23,7 +23,7 @@
   },
   "type": "commonjs",
   "dependencies": {
-    "pptr-core": "file:../pptr-core",
+    "pptr-core": "workspace:*",
     "commander": "^11.0.0",
     "js-yaml": "^4.1.1",
     "puppeteer": "^22.0.0",

@@ -1,5 +1,5 @@
-const Parser = require('../src/parser');
-const Importer = require('../src/importer');
+const Parser = require('./parser');
+const Importer = require('./importer');
 const yaml = require('js-yaml');
 
 function deepClone(obj) {
@@ -15,9 +15,6 @@ function generateUniqueName(existingObj, base) {
   return name;
 }
 
-// Merge imported functions into compiledDoc and return a mapping of original import keys
-// to the new (possibly prefixed) function names. The mapping keys are like
-// 'alias.functions.fnName' and 'alias.fnName' (both supported).
 function mergeImportedFunctions(compiledDoc, importsRegistry) {
   const nameMap = {};
   compiledDoc.functions = compiledDoc.functions || {};
@@ -39,7 +36,6 @@ function flattenActions(actions, importsRegistry, compiledDoc, nameMap = {}) {
   const out = [];
 
   for (const action of actions || []) {
-    // handle scalar import references like 'scr1.actions'
     if (typeof action === 'string') {
       if (action.includes('.')) {
         const parts = action.split('.');
@@ -70,13 +66,11 @@ function flattenActions(actions, importsRegistry, compiledDoc, nameMap = {}) {
           if (cursor && typeof cursor === 'object' && cursor.params && cursor.actions) {
             const idx = rest[0] === 'functions' ? 1 : 0;
             const functionName = rest.slice(idx).join('.');
-            // map to prefixed name if available
             const key1 = `${alias}.functions.${functionName}`;
             const key2 = `${alias}.${functionName}`;
             const mapped = nameMap[key1] || nameMap[key2];
             let finalName = mapped;
             if (!finalName) {
-              // if not present, register now using alias_ convention
               const pref = `${alias}_${functionName}`;
               finalName = generateUniqueName(compiledDoc.functions, pref);
               compiledDoc.functions[finalName] = deepClone(cursor);
@@ -96,7 +90,6 @@ function flattenActions(actions, importsRegistry, compiledDoc, nameMap = {}) {
 
     const keys = Object.keys(action);
 
-    // support both raw import-ref (no 'type' key) and normalized (has 'type')
     let importKey = null;
     let importVal = null;
     if (!action.type && keys.length === 1 && keys[0].includes('.')) {
@@ -115,7 +108,6 @@ function flattenActions(actions, importsRegistry, compiledDoc, nameMap = {}) {
       const rest = parts.slice(1);
       const imported = importsRegistry && importsRegistry[alias];
       if (imported) {
-        // walk remainder
         let cursor = imported;
         for (const seg of rest) {
           if (cursor && typeof cursor === 'object' && cursor[seg] !== undefined) {
@@ -130,7 +122,6 @@ function flattenActions(actions, importsRegistry, compiledDoc, nameMap = {}) {
           throw new Error(`Imported path not found: ${key}`);
         }
 
-        // If cursor is an actions array -> inline
         if (Array.isArray(cursor)) {
           for (const sub of cursor) {
             const flattened = flattenActions([sub], importsRegistry, compiledDoc);
@@ -139,7 +130,6 @@ function flattenActions(actions, importsRegistry, compiledDoc, nameMap = {}) {
           continue;
         }
 
-        // If cursor has .actions
         if (cursor && Array.isArray(cursor.actions)) {
           for (const sub of cursor.actions) {
             const flattened = flattenActions([sub], importsRegistry, compiledDoc);
@@ -148,9 +138,7 @@ function flattenActions(actions, importsRegistry, compiledDoc, nameMap = {}) {
           continue;
         }
 
-        // If cursor looks like a function def
         if (cursor && typeof cursor === 'object' && cursor.params && cursor.actions) {
-          // function name is remainder after 'functions.'
           const idx = rest[0] === 'functions' ? 1 : 0;
           const functionName = rest.slice(idx).join('.');
           if (!functionName) {
@@ -167,19 +155,16 @@ function flattenActions(actions, importsRegistry, compiledDoc, nameMap = {}) {
             nameMap[key1] = finalName;
             nameMap[key2] = finalName;
           }
-          // create normalized func invocation
           const call = { type: 'func', name: finalName, args: deepClone(val || {}) };
           out.push(call);
           continue;
         }
 
-        // Fallback: inline the object itself
         out.push(deepClone(cursor));
         continue;
       }
     }
 
-    // Otherwise, deep clone and recurse into known nested action containers
     const a = deepClone(action);
     if (Array.isArray(a.actions)) a.actions = flattenActions(a.actions, importsRegistry, compiledDoc);
     if (Array.isArray(a.then)) a.then = flattenActions(a.then, importsRegistry, compiledDoc);
@@ -204,18 +189,14 @@ function inlineImports(doc, importsRegistry) {
   if (!doc || typeof doc !== 'object') return doc;
 
   const compiled = deepClone(doc);
-  // remove import key
   if (compiled.import) delete compiled.import;
 
   compiled.functions = compiled.functions || {};
 
-  // merge imported functions (auto-prefix to avoid conflicts)
   const nameMap = mergeImportedFunctions(compiled, importsRegistry);
 
-  // process top-level actions
   if (Array.isArray(compiled.actions)) compiled.actions = flattenActions(compiled.actions, importsRegistry, compiled, nameMap);
 
-  // process functions bodies
   if (compiled.functions && typeof compiled.functions === 'object') {
     for (const [name, fn] of Object.entries(compiled.functions)) {
       if (fn && Array.isArray(fn.actions)) {
@@ -224,7 +205,6 @@ function inlineImports(doc, importsRegistry) {
     }
   }
 
-  // process tabs
   if (Array.isArray(compiled.tabs)) {
     compiled.tabs = compiled.tabs.map(tab => {
       const t = deepClone(tab);
@@ -233,7 +213,6 @@ function inlineImports(doc, importsRegistry) {
     });
   }
 
-  // process subcommands recursively
   function recurseSubcommands(map) {
     if (!map || typeof map !== 'object') return;
     for (const [k, v] of Object.entries(map)) {
@@ -254,7 +233,6 @@ function inlineImports(doc, importsRegistry) {
 
 async function compileYamlString(yamlContent, baseDir) {
   const parser = new Parser();
-  // load raw YAML to preserve top-level `import` mapping (Parser.normalize drops it)
   const raw = require('js-yaml').load(yamlContent);
   const doc = parser.normalize(raw);
   let importsRegistry = {};

@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const Parser = require('../src/parser');
+const Parser = require('./parser');
 
 class ImportError extends Error {}
 

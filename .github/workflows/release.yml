@@ -44,7 +44,7 @@ jobs:
         run: npm ci
 
       - name: Build binary with pkg
-        working-directory: packages/pptr
+        working-directory: app/pptr
         run: |
           echo "Building target: ${{ matrix.target }}"
           npx pkg . --targets "${{ matrix.target }}" --out-path ../../dist
