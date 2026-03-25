@@ -1,47 +1,17 @@
 {
-  "name": "pptr",
+  "name": "pptr-monorepo",
+  "private": true,
   "version": "1.9.2",
-  "description": "YAML-based Puppeteer automation script runner - standalone executable",
-  "main": "src/index.js",
-  "bin": {
-    "pptr": "./src/cli.js"
-  },
-  "pkg": {
-    "scripts": [
-      "src/**/*.js"
-    ],
-    "assets": [
-      "package.json"
-    ],
-    "targets": [
-      "node18-linux-x64"
-    ],
-    "outputPath": "dist"
-  },
-  "scripts": {
-    "start": "node src/cli.js",
-    "test": "jest --runInBand",
-    "test:watch": "jest --watch",
-    "build": "pkg . --output dist/pptr"
-  },
-  "keywords": [
-    "puppeteer",
-    "yaml",
-    "automation",
-    "browser",
-    "cli"
+  "workspaces": [
+    "packages/*"
   ],
-  "author": "Lucas Campagna",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "commander": "^11.0.0",
-    "js-yaml": "^4.1.1",
-    "puppeteer": "^22.0.0",
-    "expression-eval": "^2.0.1"
+  "description": "Monorepo for pptr (CLI + core)",
+  "scripts": {
+    "bootstrap": "npm ci",
+    "test": "jest --runInBand",
+    "build": "echo \"Build individual packages with their scripts (see packages/pptr)\""
   },
   "devDependencies": {
-    "pkg": "^5.8.1",
     "jest": "^29.6.1"
   }
 }

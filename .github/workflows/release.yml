@@ -44,9 +44,10 @@ jobs:
         run: npm ci
 
       - name: Build binary with pkg
+        working-directory: packages/pptr
         run: |
           echo "Building target: ${{ matrix.target }}"
-          npx pkg . --targets "${{ matrix.target }}" --out-path dist
+          npx pkg . --targets "${{ matrix.target }}" --out-path ../../dist
         shell: bash
 
       - name: Show artifacts
@@ -94,11 +95,11 @@ jobs:
           fi
           echo "Chosen artifact: $chosen"
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            cp "$chosen" dist/pptr-macos || mv "$chosen" dist/pptr-macos || true
-            chmod +x dist/pptr-macos || true
+            cp "$chosen" ../../dist/pptr-macos || mv "$chosen" ../../dist/pptr-macos || true
+            chmod +x ../../dist/pptr-macos || true
           else
-            cp "$chosen" dist/pptr-linux || true
-            chmod +x dist/pptr-linux || true
+            cp "$chosen" ../../dist/pptr-linux || true
+            chmod +x ../../dist/pptr-linux || true
           fi
 
       - name: Normalize artifact names (Windows)
@@ -118,19 +119,19 @@ jobs:
             $chosen = $dist[0].FullName
           }
           Write-Host "Chosen artifact: $chosen"
-          $destExe = Join-Path -Path 'dist' -ChildPath 'pptr-windows.exe'
+          $destExe = Join-Path -Path '..\..\dist' -ChildPath 'pptr-windows.exe'
           Move-Item $chosen -Destination $destExe -Force
-          Copy-Item $destExe 'dist\pptr-windows' -Force
+          Copy-Item $destExe '..\..\dist\pptr-windows' -Force
 
       - name: Show final artifacts
-        run: ls -la dist || true
+        run: ls -la ../../dist || true
         shell: bash
 
       - name: Upload artifact to workflow
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: dist/*
+          path: ../../dist/*
 
   publish:
     name: Publish release assets
@@ -161,6 +162,10 @@ jobs:
         run: |
           set -e
           mkdir -p release-files
+          # prefer dist artifacts produced by the build matrix
+          if [ -d dist ]; then
+            cp dist/* release-files/ 2>/dev/null || true
+          fi
           if [ -d artifacts/linux ]; then
             cp artifacts/linux/* release-files/ 2>/dev/null || true
           fi
