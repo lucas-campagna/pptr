@@ -190,11 +190,18 @@ jobs:
           ls -la release-files || true
         shell: bash
 
-      - name: Create GitHub release and upload assets
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ github.event.release.tag_name }}
-          name: ${{ github.event.release.tag_name }}
-          files: release-files/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Authenticate gh CLI
+        run: |
+          # Authenticate the GitHub CLI using the workflow token so we can upload assets
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      - name: Upload release assets with gh
+        run: |
+          set -e
+          TAG="${{ github.event.release.tag_name }}"
+          REPO="${{ github.repository }}"
+          echo "Uploading release-files/* to release $TAG in $REPO"
+          for f in release-files/*; do
+            echo "Uploading $f"
+            gh release upload "$TAG" "$f" --repo "$REPO" --clobber
+          done
