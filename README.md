@@ -2,340 +2,129 @@
 
 A YAML-based browser automation scripting language built on top of Puppeteer.
 
-## Features
+pptr is a small monorepo that provides a CLI and a reusable core library to run
+browser automation scripts written in YAML. It supports CSS & XPath selectors,
+variables, control flow, parallel execution, tab management, data extraction,
+and more. The project can be run from source, built into standalone binaries,
+or executed inside a Docker container.
 
-- **YAML Scripts**: Write browser automation scripts in simple YAML format
-- **CSS & XPath**: Support for both CSS and XPath selectors
-- **Variables**: Use `${VAR}` syntax with environment variable support
-- **Variable Override**: Override variables from command line
-- **Control Flow**: Conditionals (`if`/`else`), loops (`for`, `repeat`), error handling (`try`/`catch`)
-- **Parallel Execution**: Run actions concurrently
-- **Tab Management**: Open, switch, and close browser tabs
-- **Data Extraction**: Extract text, attributes, and structured data
-- **Functions**: Define reusable action blocks with parameters
-- **Interactive Input**: Prompt users for input during script execution
-- **Plain Text Logging**: Human-readable logs with timestamps
-- **Standalone Executable**: No Node.js or Docker required
+Key features
 
-## Installation
+- Write automation as human-readable YAML files
+- CSS and XPath selector support
+- Variable interpolation with `${VAR}` and `${env.VAR}`
+- Control flow: `if`, `for`, `repeat`, `try/catch`, `parallel`, `retry`
+- Tab management and multi-tab workflows
+- Data extraction, screenshots and PDF export
+- Compile YAML into a small wrapper script (`-o`) for distribution
 
-### Download Executable
+Installation
 
-Download the appropriate executable from the [latest release](https://github.com/lucas-campagna/pptr/releases/latest):
+Download prebuilt executables from the latest release:
 
-| Platform | File |
-|----------|------|
-| Linux | `pptr` |
-| macOS | `pptr` |
-| Windows | `pptr.exe` |
+https://github.com/lucas-campagna/pptr/releases/latest
 
-```bash
-# Linux/macOS
-chmod +x pptr
-./pptr scripts/example.yaml
+From source (development)
 
-# Windows
-pptr.exe scripts\example.yaml
-```
+1. Clone the repository:
 
-### From Source
+   git clone https://github.com/lucas-campagna/pptr.git
+   cd pptr
 
-```bash
-git clone https://github.com/lucas-campagna/pptr.git
-cd pptr
-npm install
-npm run build
-```
+2. Install dependencies and run the CLI directly:
 
-## Usage
+   # Install workspace dependencies
+   npm ci
 
-```bash
-pptr <script.yaml> [options]
-pptr -e "<yaml>" [options]
-pptr <script.yaml> -o <output> [options]
-```
+   # Run the CLI from the repository root
+   node src/cli.js scripts/example.yaml
 
-### Options
+Build a standalone executable (apps/pptr)
 
-| Option | Description |
-|--------|-------------|
-| `-e, --execute <yaml>` | Execute YAML directly from command line |
-| `--headless` | Run in headless mode (default) |
-| `--no-headless` | Run with visible browser |
-| `-d, --debug` | Enable debug level logging |
-| `--log <path>` | Write logs to file |
-| `--output <dir>` | Output directory (default: `./output`) |
-| `-v, --var <VAR=VALUE>` | Override variable (can use multiple times) |
-| `-o, --output <path>` | Compile script to standalone shell script |
+The CLI app lives in `apps/pptr` and can be packaged with `pkg` to create
+platform binaries.
 
-### Environment variables
+   cd apps/pptr
+   npm ci
+   npm run build
 
-- `BROWSER_PATH` - if set, must point to a valid browser executable to use instead of the bundled deps.
-- `AUTO_BROWSER` - if set to `1` or `true`, when multiple system browsers are found the first one will be selected automatically. If not set and multiple browsers are found the CLI will fail and list candidates.
+Binaries are written to `apps/pptr/dist`.
 
-### Examples
+Docker
 
-```bash
-# Basic usage
-./pptr scripts/example.yaml
+Build the image and run a script using the bundled CLI inside the container:
 
-# Execute YAML from command line
-./pptr -e "open: https://example.com"
-./pptr -e "open: https://example.com\nactions:\n  - log: hello"
+   docker build -t pptr .
+   docker run --rm -v "$(pwd)/scripts:/app/scripts" -v "$(pwd)/output:/app/output" pptr ./scripts/example.yaml
+
+Usage
+
+Run a YAML script:
+
+   node src/cli.js <script.yaml> [options]
+
+If you installed a packaged binary it will be available as `pptr`:
+
+   pptr <script.yaml> [options]
+
+Execute YAML directly from command line:
+
+   node src/cli.js -e "open: https://example.com"
+
+Options
+
+  -e, --execute <yaml>        Execute YAML content directly
+      --headless              Run in headless mode (default)
+      --no-headless           Run with visible browser
+  -d, --debug                 Enable debug logging
+      --log <path>            Write logs to file
+  -v, --var <VAR=VALUE>       Override variable (repeatable)
+  -o, --output <path>         Compile script to standalone wrapper (bash/PowerShell)
+      --wrapper <type>        Force wrapper (bash|powershell|auto)
+      --list-browsers         List detected browser executables and exit
+
+Environment variables
+
+- `BROWSER_PATH` - when set it must point to the exact browser executable to use
+- `AUTO_BROWSER` - if `1` or `true`, automatically pick the first browser when multiple are found
+
+Examples
+
+# Run a script
+node src/cli.js scripts/example.yaml
+
+# Execute inline YAML
+node src/cli.js -e "open: https://example.com" -d
 
 # Override variables
-./pptr scripts/example.yaml --var BASE_URL=https://google.com
-
-# Multiple variable overrides
-./pptr scripts/example.yaml \
-  --var BASE_URL=https://google.com \
-  --var SEARCH_TERM=automation
+node src/cli.js scripts/example.yaml -v BASE_URL=https://google.com -v SEARCH_TERM=automation
 
 # Run with visible browser
-./pptr scripts/example.yaml --no-headless
+node src/cli.js scripts/example.yaml --no-headless
 
-# Enable debug logging
-./pptr scripts/example.yaml -d
+# Compile to standalone wrapper
+node src/cli.js scripts/example.yaml -o myapp
 
-# Custom output directory
-./pptr scripts/example.yaml --output ./results --log automation.log
-
-# Compile to standalone shell script
-./pptr scripts/example.yaml -o myapp
-
-# Run compiled script (pptr must be in PATH)
+# Run compiled wrapper (pptr must be in PATH)
 ./myapp
 
-# Compile with default variables
-./pptr scripts/example.yaml -o myapp -v BASE_URL=https://google.com
+Script structure, selectors and actions
 
-# Override variables at runtime
-./myapp -v BASE_URL=https://github.com
-```
+See the documentation in `docs/` for full details:
 
-## Script Structure
+- `docs/actions.md` - complete actions reference
+- `docs/examples.md` - working examples
 
-```yaml
-meta:
-  name: "script-name"
-  logs: "./output/script.log"
-  timeout: 30000
+Project layout
 
-vars:
-  BASE_URL: "https://example.com"
-  USERNAME: ${env.USER}
+`/pptr` (repository root)
 
-open: ${BASE_URL}
+- `apps/pptr/` - CLI app and packaging config (`apps/pptr/src/cli.js`)
+- `libs/pptr-core/` - core interpreter, parser, runner, utilities
+- `docs/` - user documentation
+- `scripts/` - example scripts
+- `Dockerfile` and root `package.json`
 
-actions:
-  - log: "Starting automation"
-  - click: "#button"
-  - type:
-      selector: "#username"
-      text: "${USERNAME}"
-  - screenshot: output.png
-
-functions:
-  myfunc:
-    params:
-      arg1: "default value"
-      arg2: null
-    actions:
-      - log: "Hello ${arg1}"
-
-tabs:
-  - open: https://other-site.com
-    actions:
-      - log: "In new tab"
-```
-
-## Selectors
-
-### CSS Selectors
-
-By default, selectors are treated as CSS:
-
-```yaml
-- click: "#button"
-- type:
-    selector: "input[name='email']"
-    text: "test@example.com"
-```
-
-### XPath Selectors
-
-Selectors starting with `/` are treated as XPath:
-
-```yaml
-- click: "//button[@id='submit']"
-- type:
-    selector: "//input[@name='username']"
-    text: "johndoe"
-- wait: "//div[contains(@class, 'result')]"
-```
-
-## Actions Reference
-
-### Navigation
-
-- `open` - Navigate to URL
-- `back` - Go back in history
-- `forward` - Go forward in history
-- `reload` - Reload page
-
-### Interaction
-
-- `click` - Click element
-- `type` - Type text into input
-- `hover` - Hover over element
-- `select` - Select dropdown option
-- `scroll` - Scroll page or element
-- `press` - Press keyboard key
-
-### Waiting
-
-- `wait` - Wait for element, timeout, navigation, or condition
-
-### Tabs
-
-- `newTab` - Open new tab
-- `switchTab` - Switch to tab by index
-- `closeTab` - Close current tab
-
-### Control Flow
-
-- `if` / `else` - Conditional execution
-- `for` - Iterate over items or elements
-- `repeat` - Repeat actions N times
-- `break` / `continue` - Loop control
-- `parallel` - Execute actions in parallel
-- `retry` - Retry failed actions
-- `try` / `catch` - Error handling
-
-### Data
-
-- `extract` - Extract text or structured data
-- `screenshot` - Take screenshot
-- `pdf` - Generate PDF
-- `write` - Write to file
-- `input` - Prompt user for input
-
-### Functions
-
-- `functions` - Define reusable action blocks
-- `return` - Return value from function
-
-### Logging
-
-- `log` - Log message with optional level
-
-## Examples
-
-### Form Filling
-
-```yaml
-vars:
-  BASE_URL: "https://example.com"
-  EMAIL: "user@example.com"
-
-open: ${BASE_URL}/login
-
-actions:
-  - type:
-      selector: "#email"
-      text: "${EMAIL}"
-  - type:
-      selector: "#password"
-      text: "secret123"
-  - click: "#submit"
-  - wait: ".dashboard"
-  - screenshot: logged-in.png
-```
-
-### Web Scraping
-
-```yaml
-open: https://news.ycombinator.com
-
-actions:
-  - for:
-      selector: ".titleline > a"
-      as: link
-    actions:
-      - extract:
-          selector: "${link}"
-          save: title
-      - log: "Found: ${title}"
-```
-
-### Error Handling
-
-```yaml
-actions:
-  - retry:
-      times: 3
-      delay: 1000
-    action:
-      - click: "#unstable-button"
-      - wait: ".result"
-
-  - try:
-      action:
-        - click: "#optional-popup"
-    catch:
-      - log: "Popup not found, continuing"
-```
-
-### Functions
-
-```yaml
-functions:
-  login:
-    params:
-      username: null
-      password: null
-    actions:
-      - type:
-          selector: "#username"
-          text: "${username}"
-      - type:
-          selector: "#password"
-          text: "${password}"
-      - click: "#submit"
-      - return: "logged_in"
-
-open: https://example.com/login
-
-actions:
-  - login:
-      username: "user@example.com"
-      password: "secret123"
-  - log: "Login result: ${result}"
-```
-
-### Interactive Input
-
-```yaml
-actions:
-  # Simple form - result stored in $result
-  - input: "Enter your name: "
-
-  # Full form with custom variable
-  - input:
-      prompt: "Password: "
-      var: "user_password"
-      default: null
-      hide: true
-
-  - log: "Welcome, ${result}!"
-  - log: "Password set: ${user_password}"
-```
-
-## Documentation
-
-- [Actions Reference](docs/actions.md) - Complete reference for all actions
-- [Examples](docs/examples.md) - Working examples for common use cases
-
-## License
+License
 
 ISC
