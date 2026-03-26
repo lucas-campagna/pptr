@@ -1,4 +1,12 @@
-const yaml = require('js-yaml');
+let yaml;
+try {
+  yaml = require('js-yaml');
+} catch (e) {
+  // fall back to bundled minimal YAML implementation when js-yaml isn't
+  // available in the environment (useful for test runs without installing
+  // dependencies)
+  yaml = require('./vendor/js-yaml');
+}
 const fs = require('fs');
 
 class Parser {

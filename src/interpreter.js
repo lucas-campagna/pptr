@@ -1,5 +1,14 @@
-const Logger = require('./logger');
-const VariableEngine = require('./variables');
+// Prefer lib variant from monorepo if available (keeps top-level tests working
+// while using the canonical implementation in libs/pptr-core when present).
+let Logger, VariableEngine;
+try {
+  const core = require('pptr-core');
+  Logger = core.Logger;
+  VariableEngine = core.VariableEngine;
+} catch (e) {
+  Logger = require('./logger');
+  VariableEngine = require('./variables');
+}
 
 class Interpreter {
   constructor(browser, options = {}) {

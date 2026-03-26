@@ -1,6 +1,15 @@
-const Parser = require('./parser');
-const Importer = require('./importer');
-const yaml = require('js-yaml');
+// Prefer core package implementations if available
+let Parser, Importer, yaml;
+try {
+  const core = require('pptr-core');
+  Parser = core.Parser;
+  Importer = { loadImports: core.loadImports };
+  yaml = require('js-yaml');
+} catch (e) {
+  Parser = require('./parser');
+  Importer = require('./importer');
+  yaml = require('js-yaml');
+}
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));

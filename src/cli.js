@@ -3,8 +3,18 @@
 const path = require('path');
 const fs = require('fs');
 const { Command } = require('commander');
-const Runner = require('./runner');
-const Compile = require('./compile');
+// Maintain compatibility with monorepo layout: prefer workspace packages but
+// fall back to top-level `src` modules during tests. If the monorepo has
+// `libs/pptr-core` installed, use it instead of duplicating logic here.
+let Runner, Compile;
+try {
+  const core = require('pptr-core');
+  Runner = core.Runner;
+  Compile = { compileYamlString: core.compileYamlString, inlineImports: core.inlineImports };
+} catch (e) {
+  Runner = require('./runner');
+  Compile = require('./compile');
+}
 
 const version = process.env.PPTR_VERSION || require('../package.json').version || '1.0.0';
 
@@ -136,6 +146,8 @@ program
   .option('-d, --debug', 'enable debug level logging', false)
   .option('--log <path>', 'path to log file')
   .option('-v, --var <VAR=VALUE>', 'override variable (can be used multiple times)', collectVars, [])
+  .option('-s, --session <name>', 'persist session (name or path)')
+  .option('--clear-session', 'remove session directory before running')
   .option('-o, --output <path>', 'compile script to standalone shell script')
   .option('--wrapper <type>', "force wrapper (bash|powershell|auto)", 'auto')
   .option('--list-browsers', 'list all detected browser executables and exit')
@@ -175,6 +187,8 @@ program
       logPath: options.log || null,
       debug: options.debug || false,
       vars: {},
+      session: options.session || null,
+      clearSession: !!options.clearSession,
       version,
       subcommands: subcommandList,
     };

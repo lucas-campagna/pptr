@@ -3,8 +3,8 @@
   "private": true,
   "version": "1.9.2",
   "workspaces": [
-    "app/*",
-    "lib/*"
+    "apps/*",
+    "libs/*"
   ],
   "description": "Monorepo for pptr (CLI + core)",
   "scripts": {

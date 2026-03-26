@@ -125,6 +125,8 @@ program
   .option('-d, --debug', 'enable debug level logging', false)
   .option('--log <path>', 'path to log file')
   .option('-v, --var <VAR=VALUE>', 'override variable (can be used multiple times)', collectVars, [])
+  .option('-s, --session <name>', 'persist session (name or path)')
+  .option('--clear-session', 'remove session directory before running')
   .option('-o, --output <path>', 'compile script to standalone shell script')
   .option('--wrapper <type>', "force wrapper (bash|powershell|auto)", 'auto')
   .option('--list-browsers', 'list all detected browser executables and exit')
@@ -163,6 +165,8 @@ program
       logPath: options.log || null,
       debug: options.debug || false,
       vars: {},
+      session: options.session || null,
+      clearSession: !!options.clearSession,
       version,
       subcommands: subcommandList,
     };

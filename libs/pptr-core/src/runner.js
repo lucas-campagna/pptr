@@ -1,6 +1,7 @@
 const puppeteer = require("puppeteer");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 const { spawn } = require("child_process");
 const Logger = require('./logger');
 const Parser = require('./parser');
@@ -32,6 +33,16 @@ class Runner {
 
   getChromeDir() {
     return path.join(this.getDepsDir(), "chrome");
+  }
+
+  resolveSessionDir(session) {
+    if (!session) return null;
+    // If looks like a path, use it
+    if (path.isAbsolute(session) || session.includes(path.sep)) {
+      return path.resolve(session);
+    }
+    // default sessions directory under home
+    return path.join(os.homedir(), '.pptr', 'sessions', session);
   }
 
   async ensureDependencies(logger) {
@@ -242,6 +253,25 @@ class Runner {
       env: { ...restEnv },
       dumpio: !!this.options.debug,
     };
+
+    // Session support: if a session name/path was provided, resolve it to a
+    // directory and pass it to Puppeteer as `userDataDir` so profile and
+    // cookies/cache are persisted across runs. Respect the `clearSession`
+    // option by removing the directory before launching.
+    try {
+      const sessionDir = this.resolveSessionDir(this.options.session);
+      if (sessionDir) {
+        if (this.options.clearSession) {
+          try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) {}
+        }
+        try { fs.mkdirSync(sessionDir, { recursive: true }); } catch (e) {}
+        launchOptions.userDataDir = sessionDir;
+        logger.debug(`Using session directory: ${sessionDir}`);
+      }
+    } catch (e) {
+      // Do not fail runs just because session handling couldn't be set up.
+      logger.debug(`Failed to setup session dir: ${e && e.message ? e.message : e}`);
+    }
 
     let chromeDir;
     let usedSystemBrowser = false;
