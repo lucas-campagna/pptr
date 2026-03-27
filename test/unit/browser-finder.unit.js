@@ -3,7 +3,9 @@ const path = require('path');
 
 describe('browser-finder (unit)', () => {
   it('expandHomeAndEnv expands ~ and env vars', () => {
-  const bf = require('pptr-core').BrowserFinder || require('../../src/browser-finder');
+  let core;
+  try { core = require('pptr-core'); } catch (e) { core = require('../../libs/pptr-core/src'); }
+  const bf = core.BrowserFinder || require('../../libs/pptr-core/src/browser-finder');
     const origHome = process.env.HOME;
     process.env.HOME = '/home/testuser';
     try {
@@ -15,10 +17,12 @@ describe('browser-finder (unit)', () => {
   });
 
   it('isWSL detection works (non-deterministic in CI)', () => {
-  const bf = require('pptr-core').BrowserFinder || require('../../src/browser-finder');
+  let core2;
+  try { core2 = require('pptr-core'); } catch (e) { core2 = require('../../libs/pptr-core/src'); }
+  const bf2 = core2.BrowserFinder || require('../../libs/pptr-core/src/browser-finder');
     // We don't assert a specific value here because CI may run in WSL.
     // Just ensure the function returns a boolean.
-    const val = bf.isWSL();
+    const val = bf2.isWSL();
     assert.strictEqual(typeof val, 'boolean');
   });
 });

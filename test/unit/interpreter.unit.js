@@ -1,8 +1,9 @@
 const assert = require('assert');
-const core = require('pptr-core');
-const Interpreter = core.Interpreter || require('../../src/interpreter');
-const VariableEngine = core.VariableEngine || require('../../src/variables');
-const Logger = core.Logger || require('../../src/logger');
+let core;
+try { core = require('pptr-core'); } catch (e) { core = require('../../libs/pptr-core/src'); }
+const Interpreter = core.Interpreter || require('../../libs/pptr-core/src/interpreter');
+const VariableEngine = core.VariableEngine || require('../../libs/pptr-core/src/variables');
+const Logger = core.Logger || require('../../libs/pptr-core/src/logger');
 
 describe('Interpreter control structures (unit)', () => {
   function makeLogger() {
