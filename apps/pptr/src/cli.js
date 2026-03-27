@@ -2,10 +2,86 @@
 
 const path = require('path');
 const fs = require('fs');
-const { Command } = require('commander');
-const { Runner, compileYamlString } = require('pptr-core');
+let Command;
+try {
+  ({ Command } = require('commander'));
+} catch (e) {
+  // Minimal fallback when `commander` isn't available in the environment
+  class MinimalCommand {
+    constructor() { this._action = null; }
+    name() { return this; }
+    version() { return this; }
+    argument() { return this; }
+    option() { return this; }
+    action(cb) { this._action = cb; return this; }
+    parse(argv) {
+      const raw = argv.slice(2);
+      const opts = {};
+      const positionals = [];
+      let i = 0;
+      while (i < raw.length) {
+        const a = raw[i];
+        if (a === '--') { positionals.push(...raw.slice(i+1)); break; }
+        if (a.startsWith('-')) {
+          if (a === '-e' || a === '--execute') { opts.execute = raw[i+1]; i += 2; continue; }
+          if (a === '-o' || a === '--output') { opts.output = raw[i+1]; i += 2; continue; }
+          if (a === '--list-browsers') { opts.listBrowsers = true; i++; continue; }
+          if (a === '--no-headless') { opts.headless = false; i++; continue; }
+          if (a === '--headless') { opts.headless = true; i++; continue; }
+          if (a === '-d' || a === '--debug') { opts.debug = true; i++; continue; }
+          if (a === '--log') { opts.log = raw[i+1]; i += 2; continue; }
+          if (a === '-v' || a === '--var') { opts.var = opts.var || []; const next = raw[i+1]; opts.var.push({ key: next.split('=')[0], value: next.split('=').slice(1).join('=') }); i += 2; continue; }
+          if (a === '--wrapper') { opts.wrapper = raw[i+1]; i += 2; continue; }
+          if (a === '-s' || a === '--session') { opts.session = raw[i+1]; i += 2; continue; }
+          if (a === '--clear-session') { opts.clearSession = true; i++; continue; }
+          if (raw[i+1] && !raw[i+1].startsWith('-')) { i += 2; } else { i++; }
+        } else { positionals.push(a); i++; }
+      }
+      const script = positionals[0];
+      const subs = positionals.slice(1);
+      try { if (this._action) this._action(script, subs, opts); } catch (err) { console.error(err && err.message ? err.message : err); process.exit(1); }
+    }
+    help() { console.log('Usage: pptr [script] [subcommands] [options]'); process.exit(0); }
+  }
+  Command = MinimalCommand;
+}
+let Runner, compileYamlString, coreModule;
+// Prefer the local monorepo shim first (ensures consistent behavior in tests),
+// then try the package name and finally the direct libs path.
+try {
+  const core = require(path.resolve(__dirname, '..', '..', '..', 'src', 'shim-core'));
+  coreModule = core;
+  Runner = core.Runner;
+  compileYamlString = core.compileYamlString;
+} catch (e) {
+  try {
+    const core = require('pptr-core');
+    coreModule = core;
+    Runner = core.Runner;
+    compileYamlString = core.compileYamlString;
+  } catch (e2) {
+    try {
+      const core = require(path.resolve(__dirname, '..', '..', '..', 'libs', 'pptr-core', 'src'));
+      coreModule = core;
+      Runner = core.Runner;
+      compileYamlString = core.compileYamlString;
+    } catch (e3) {
+      try {
+        const core = require(path.resolve(__dirname, '..', 'src', 'index'));
+        coreModule = core;
+        Runner = core.Runner;
+        compileYamlString = core.compileYamlString;
+      } catch (e4) {
+        Runner = undefined;
+        compileYamlString = undefined;
+      }
+    }
+  }
+}
 
 const version = process.env.PPTR_VERSION || require('../package.json').version || '1.0.0';
+
+// Debugging prints removed.
 
 function parseVar(arg) {
   const match = arg.match(/^([^=]+)=(.*)$/);
@@ -185,9 +261,9 @@ program
 
     const listBrowsers = options.listBrowsers || false;
     if (listBrowsers) {
-      try {
-        const BrowserFinder = require('pptr-core').BrowserFinder || require('pptr-core').browserFinder || require('../src/browser-finder');
-        const list = BrowserFinder.listBrowsers({ platform: process.platform });
+        try {
+          const BrowserFinder = (coreModule && (coreModule.BrowserFinder || coreModule.browserFinder)) || (() => { try { return require('pptr-core').BrowserFinder || require('pptr-core').browserFinder; } catch(e){ return require('../browser-finder'); } })();
+          const list = BrowserFinder.listBrowsers({ platform: process.platform });
         if (!list || list.length === 0) {
           console.log('No browsers found on system');
         } else {

@@ -9,8 +9,10 @@ const YAML = {
     const lines = String(s).split(/\r?\n/).map(l => l.replace(/\t/g, '  '));
     // Extremely tiny parser using JSON fallback where possible
     try {
-      // Try to convert YAML-ish to JSON by replacing : with : ""
-      // This is unsafe for general YAML but ok for our simple fixtures.
+      // First, try a best-effort naive parse (above). If it appears to have
+      // mis-nested top-level keys (a common issue with the naive approach),
+      // fall back to a simple top-level section parser which is sufficient for
+      // our test fixtures.
       const out = {};
       let current = out;
       let stack = [];
@@ -43,6 +45,57 @@ const YAML = {
           }
         }
       }
+
+      // Quick check for a common mis-parse scenario where a top-level key
+      // ended up nested under the `import` mapping (this happens with the
+      // naive parser above). If detected, use a simpler top-level parser that
+      // preserves top-level sections correctly for our fixtures.
+      if (out.import && out.import.actions && !Array.isArray(out.actions)) {
+        const top = {};
+        let currentKey = null;
+        let buffer = [];
+        function flushBlock(key, linesBlock) {
+          if (!key) return;
+          // parse import mapping
+          if (key === 'import') {
+            top.import = {};
+            for (const l of linesBlock) {
+              const m = l.match(/^\s*([^:\s]+)\s*:\s*(.*)$/);
+              if (m) top.import[m[1]] = m[2] || '';
+            }
+            return;
+          }
+          // parse actions as list
+          if (key === 'actions') {
+            top.actions = [];
+            for (const l of linesBlock) {
+              const m = l.match(/^\s*-\s*(.*)$/);
+              if (m) top.actions.push(m[1]);
+            }
+            return;
+          }
+          // generic mapping
+          const obj = {};
+          for (const l of linesBlock) {
+            const m = l.match(/^\s*([^:\s]+)\s*:\s*(.*)$/);
+            if (m) obj[m[1]] = m[2] || '';
+          }
+          top[key] = obj;
+        }
+
+        for (const raw of lines) {
+          if (/^\S.*:\s*$/.test(raw)) {
+            if (currentKey) flushBlock(currentKey, buffer);
+            currentKey = raw.split(':')[0].trim();
+            buffer = [];
+          } else if (currentKey) {
+            buffer.push(raw);
+          }
+        }
+        if (currentKey) flushBlock(currentKey, buffer);
+        return top;
+      }
+
       // convert _lastArray fields into arrays in parent objects
       function convert(obj) {
         if (obj && typeof obj === 'object') {

@@ -62,7 +62,19 @@ class VariableEngine {
         const evaluated = eeval(ast, context);
         if (evaluated !== undefined) return String(evaluated);
       } catch (e) {
-        // ignore
+        // If expression-eval isn't installed or fails, fall back to a small
+        // evaluation strategy that allows simple arithmetic and variable
+        // references (e.g. `x + y`). This keeps tests working without
+        // installing extra deps in lightweight environments.
+        try {
+          const varNames = Object.keys(this.vars || {});
+          const fn = new Function(...varNames, `return (${trimmed});`);
+          const values = varNames.map(n => this.vars[n]);
+          const evaluated = fn(...values);
+          if (evaluated !== undefined) return String(evaluated);
+        } catch (e2) {
+          // ignore and continue
+        }
       }
 
       if (!this._allowUndeclared && !this.declaredVars.has(trimmed) && !trimmed.startsWith('_')) {

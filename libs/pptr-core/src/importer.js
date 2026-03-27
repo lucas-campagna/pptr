@@ -44,10 +44,15 @@ async function loadImports(importsMap = {}, baseDir, options = {}, _processing =
 
   if (!importsMap || typeof importsMap !== 'object') return _global;
 
+  // Try to load a YAML parser to capture original raw structures when
+  // possible (used by compile inlining to preserve string actions).
+  let yaml;
+  try { yaml = require('js-yaml'); } catch (e) { try { yaml = require('./vendor/js-yaml'); } catch (e2) { yaml = null; } }
+
   for (const [alias, rawPath] of Object.entries(importsMap)) {
-    if (!rawPath || typeof rawPath !== 'string') {
-      throw new ImportPathError(alias, String(rawPath));
-    }
+      if (!rawPath || typeof rawPath !== 'string') {
+        throw new ImportPathError(alias, String(rawPath));
+      }
 
     const resolved = resolveImportPath(baseDir, rawPath);
     if (!resolved || !fs.existsSync(resolved)) {
@@ -88,6 +93,16 @@ async function loadImports(importsMap = {}, baseDir, options = {}, _processing =
       _processing.delete(real);
       throw e;
     }
+
+    // attach raw parsed YAML when available so callers can reference the
+    // original action strings if needed.
+    try {
+      if (yaml) {
+        const rawContent = fs.readFileSync(resolved, 'utf8');
+        const rawLoaded = yaml.load(rawContent);
+        parsed.__raw = rawLoaded;
+      }
+    } catch (e) {}
 
     parsed.__importPath = resolved;
     parsed.__file = real;

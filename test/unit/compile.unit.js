@@ -1,7 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { compileYamlString, inlineImports } = require('../../src/compile');
+const { compileYamlString, inlineImports } = require('pptr-core');
 
 describe('Compile inlining', () => {
   it('inlines imported actions and functions', async () => {

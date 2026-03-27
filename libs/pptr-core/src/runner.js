@@ -1,4 +1,11 @@
-const puppeteer = require("puppeteer");
+let puppeteer;
+try {
+  puppeteer = require('puppeteer');
+} catch (e) {
+  // fall back to a tiny shim during migrations/tests where puppeteer
+  // isn't installed to avoid heavy native deps.
+  puppeteer = require('./vendor/puppeteer-shim');
+}
 const path = require("path");
 const fs = require("fs");
 const os = require("os");

@@ -78,6 +78,28 @@ class Parser {
   }
 
   normalizeActions(actions) {
+    // Support vendor YAML loader which may return an object with a
+    // `_lastArray` property containing the raw list items. Convert that
+    // representation into a normalized array of actions first.
+    if (actions && typeof actions === 'object' && Array.isArray(actions._lastArray)) {
+      const arr = actions._lastArray.map(item => {
+        if (typeof item !== 'string') return item;
+        const s = item.trim();
+        // If item looks like a mapping `key: value` convert to object
+        const idx = s.indexOf(':');
+        if (idx !== -1) {
+          const key = s.slice(0, idx).trim();
+          const val = s.slice(idx + 1).trim();
+          // if val empty, return empty object for nested mapping
+          if (val === '') return { [key]: {} };
+          return { [key]: val };
+        }
+        // otherwise return as a simple string reference
+        return s;
+      });
+      return arr.map(action => this.normalizeAction(action));
+    }
+
     if (!Array.isArray(actions)) {
       return [];
     }

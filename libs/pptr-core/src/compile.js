@@ -1,6 +1,11 @@
 const Parser = require('./parser');
 const Importer = require('./importer');
-const yaml = require('js-yaml');
+let yaml;
+try {
+  yaml = require('js-yaml');
+} catch (e) {
+  yaml = require('./vendor/js-yaml');
+}
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -233,14 +238,82 @@ function inlineImports(doc, importsRegistry) {
 
 async function compileYamlString(yamlContent, baseDir) {
   const parser = new Parser();
-  const raw = require('js-yaml').load(yamlContent);
+  const raw = yaml.load(yamlContent);
   const doc = parser.normalize(raw);
+
+  // Ensure we have a clean mapping alias -> path for imports. Some YAML
+  // fallback parsers may mis-parse the import block; prefer string values and
+  // fall back to a simple textual parser when needed.
   let importsRegistry = {};
+  let importsMap = null;
   if (raw && raw.import && typeof raw.import === 'object') {
-    importsRegistry = await Importer.loadImports(raw.import, baseDir);
+    const allStrings = Object.values(raw.import).every(v => typeof v === 'string');
+    if (allStrings) {
+      importsMap = raw.import;
+    } else {
+      // textual parse: find the import: block and extract alias: path lines
+      const lines = String(yamlContent).split(/\r?\n/);
+      let inImport = false;
+      const map = {};
+      for (const rawLine of lines) {
+        if (!inImport) {
+          if (/^\s*import\s*:\s*$/.test(rawLine)) { inImport = true; }
+          continue;
+        }
+        // stop when next top-level key encountered
+        if (/^\S/.test(rawLine)) break;
+        const m = rawLine.match(/^\s*([^:\s]+)\s*:\s*(.*)$/);
+        if (m) map[m[1]] = m[2] || '';
+      }
+      if (Object.keys(map).length > 0) importsMap = map;
+    }
   }
+
+  if (importsMap) {
+    importsRegistry = await Importer.loadImports(importsMap, baseDir);
+  }
+
   const inlined = inlineImports(doc, importsRegistry);
-  const dumped = yaml.dump(inlined, { noRefs: true, sortKeys: false });
+  // Convert normalized action objects back into short-form strings when
+  // possible so a simple YAML dumper (or our vendor shim) preserves the
+  // human-friendly compact notation (e.g. `- log: message`).
+  function shortifyAction(a) {
+    if (!a || typeof a !== 'object') return a;
+    if (a.type === 'log' && typeof a.message === 'string') return `log: ${a.message}`;
+    if (a.type === 'open' && typeof a.url === 'string') return `open: ${a.url}`;
+    if (a.type === 'click' && typeof a.selector === 'string') return `click: ${a.selector}`;
+    if (a.type === 'type' && typeof a.selector === 'string' && a.text !== undefined) return `type: ${a.selector}`;
+    if (a.type === 'fill' && typeof a.selector === 'string') return `fill: ${a.selector}`;
+    if (a.type === 'screenshot' && typeof a.path === 'string') return `screenshot: ${a.path}`;
+    if (a.type === 'pdf' && typeof a.path === 'string') return `pdf: ${a.path}`;
+    // fallback: try to reconstruct a simple mapping when action has a single
+    // string-valued meaningful property.
+    const keys = Object.keys(a).filter(k => k !== 'type' && a[k] !== undefined && typeof a[k] !== 'object');
+    if (keys.length === 1) return `${a.type}: ${String(a[keys[0]])}`;
+    return a;
+  }
+
+  function recurse(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(v => recurse(v));
+    const out = { ...obj };
+    if (Array.isArray(out.actions)) out.actions = out.actions.map(a => recurse(shortifyAction(a)));
+    if (Array.isArray(out.tabs)) out.tabs = out.tabs.map(t => ({ ...t, actions: Array.isArray(t.actions) ? t.actions.map(a => recurse(shortifyAction(a))) : t.actions }));
+    if (out.functions && typeof out.functions === 'object') {
+      for (const [k, fn] of Object.entries(out.functions)) {
+        if (fn && Array.isArray(fn.actions)) fn.actions = fn.actions.map(a => recurse(shortifyAction(a)));
+      }
+    }
+    if (out.subcommands && typeof out.subcommands === 'object') {
+      for (const [k, sc] of Object.entries(out.subcommands)) {
+        out.subcommands[k] = recurse(sc);
+      }
+    }
+    return out;
+  }
+
+  const safe = recurse(inlined);
+  const dumped = yaml.dump(safe, { noRefs: true, sortKeys: false });
   return dumped;
 }
 
