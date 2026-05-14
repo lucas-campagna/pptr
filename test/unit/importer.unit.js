@@ -1,7 +1,12 @@
 const path = require('path');
 const fs = require('fs');
 const assert = require('assert');
-const core = require('pptr-core');
+let core;
+try {
+  core = require('pptr-core');
+} catch (e) {
+  core = require('../../src/libs');
+}
 const { loadImports, ImportPathError, CircularImportError } = { loadImports: core.loadImports, ImportPathError: core.ImportPathError, CircularImportError: core.CircularImportError };
 
 describe('Importer', () => {

@@ -4,8 +4,8 @@ const { spawn } = require('child_process');
 
 module.exports = {
   runCli: (args, opts = {}) => new Promise((resolve) => {
-    // CLI moved to repo root src/cli.js; path from apps/pptr/test is two levels down
-    const cli = path.join(__dirname, '..', '..', 'src', 'cli.js');
+    // CLI moved to repo root src/cli.js; path from apps/pptr/test is three levels up
+    const cli = path.join(__dirname, '..', '..', '..', 'src', 'cli.js');
     const proc = spawn(process.execPath, [cli, ...args], {
       // default to repository root so script paths like `scripts/example.yaml`
       // resolve; callers can override via opts.cwd

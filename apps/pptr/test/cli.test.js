@@ -1,7 +1,7 @@
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
-const { runCli } = require('../helpers');
+const { runCli } = require('./helpers');
 
 describe('CLI', () => {
   beforeAll(() => {
