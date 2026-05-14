@@ -4,7 +4,8 @@ const fs = require('fs');
 
 function runCli(args, opts = {}) {
   return new Promise((resolve) => {
-    const cli = path.join(__dirname, '..', 'apps', 'pptr', 'src', 'cli.js');
+    // CLI was moved to src/cli.js in the flattened layout.
+    const cli = path.join(__dirname, '..', 'src', 'cli.js');
     const proc = spawn(process.execPath, [cli, ...args], {
       // default to repository root so script paths like `scripts/example.yaml`
       // resolve; callers can override via opts.cwd

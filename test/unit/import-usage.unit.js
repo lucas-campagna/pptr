@@ -1,9 +1,9 @@
 const assert = require('assert');
 let core;
-try { core = require('pptr-core'); } catch (e) { core = require('../../libs/pptr-core/src'); }
-const Interpreter = core.Interpreter || require('../../libs/pptr-core/src/interpreter');
-const VariableEngine = core.VariableEngine || require('../../libs/pptr-core/src/variables');
-const Logger = core.Logger || require('../../libs/pptr-core/src/logger');
+try { core = require('pptr-core'); } catch (e) { core = require('../../src/libs'); }
+const Interpreter = core.Interpreter || require('../../src/libs/interpreter');
+const VariableEngine = core.VariableEngine || require('../../src/libs/variables');
+const Logger = core.Logger || require('../../src/libs/logger');
 
 function makeLogger() {
   const logs = [];

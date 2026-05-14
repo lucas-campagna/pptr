@@ -1,18 +1,26 @@
 {
-  "name": "pptr-monorepo",
-  "private": true,
+  "name": "pptr",
   "version": "1.9.2",
-  "workspaces": [
-    "apps/*",
-    "libs/*"
-  ],
-  "description": "Monorepo for pptr (CLI + core)",
+  "private": true,
+  "description": "YAML-based Puppeteer automation script runner",
+  "main": "src/index.js",
+  "bin": {
+    "pptr": "src/cli.js"
+  },
   "scripts": {
-    "bootstrap": "npm ci",
+    "start": "node src/cli.js",
     "test": "jest --runInBand",
-    "build": "echo \"Build individual packages with their scripts (see app/pptr)\""
+    "build": "pkg . --targets node18-linux-x64 --out-path dist"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "commander": "^11.0.0",
+    "js-yaml": "^4.1.1",
+    "puppeteer": "^22.0.0",
+    "expression-eval": "^2.0.1"
   },
   "devDependencies": {
+    "pkg": "^5.8.1",
     "jest": "^29.6.1"
   }
 }

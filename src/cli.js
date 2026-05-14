@@ -46,36 +46,22 @@ try {
   Command = MinimalCommand;
 }
 let Runner, compileYamlString, coreModule;
-// Prefer the local monorepo shim first (ensures consistent behavior in tests),
-// then try the package name and finally the direct libs path.
+// Prefer the in-repo lib at src/libs first, then fall back to an installed
+// pptr-core package. This keeps behavior deterministic when running from
+// the repository root after flattening the layout.
 try {
-  const core = require(path.resolve(__dirname, '..', '..', '..', 'src', 'shim-core'));
-  coreModule = core;
-  Runner = core.Runner;
-  compileYamlString = core.compileYamlString;
+  // require('./libs') resolves to src/libs/index.js when this file lives in src/
+  coreModule = require(path.resolve(__dirname, 'libs'));
+  Runner = coreModule && coreModule.Runner;
+  compileYamlString = coreModule && coreModule.compileYamlString;
 } catch (e) {
   try {
-    const core = require('pptr-core');
-    coreModule = core;
-    Runner = core.Runner;
-    compileYamlString = core.compileYamlString;
+    coreModule = require('pptr-core');
+    Runner = coreModule && coreModule.Runner;
+    compileYamlString = coreModule && coreModule.compileYamlString;
   } catch (e2) {
-    try {
-      const core = require(path.resolve(__dirname, '..', '..', '..', 'libs', 'pptr-core', 'src'));
-      coreModule = core;
-      Runner = core.Runner;
-      compileYamlString = core.compileYamlString;
-    } catch (e3) {
-      try {
-        const core = require(path.resolve(__dirname, '..', 'src', 'index'));
-        coreModule = core;
-        Runner = core.Runner;
-        compileYamlString = core.compileYamlString;
-      } catch (e4) {
-        Runner = undefined;
-        compileYamlString = undefined;
-      }
-    }
+    Runner = undefined;
+    compileYamlString = undefined;
   }
 }
 
@@ -262,7 +248,7 @@ program
     const listBrowsers = options.listBrowsers || false;
     if (listBrowsers) {
         try {
-          const BrowserFinder = (coreModule && (coreModule.BrowserFinder || coreModule.browserFinder)) || (() => { try { return require('pptr-core').BrowserFinder || require('pptr-core').browserFinder; } catch(e){ return require('../browser-finder'); } })();
+          const BrowserFinder = (coreModule && (coreModule.BrowserFinder || coreModule.browserFinder)) || (() => { try { return require('pptr-core').BrowserFinder || require('pptr-core').browserFinder; } catch(e){ return require('./libs/browser-finder'); } })();
           const list = BrowserFinder.listBrowsers({ platform: process.platform });
         if (!list || list.length === 0) {
           console.log('No browsers found on system');
