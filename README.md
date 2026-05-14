@@ -33,22 +33,22 @@ From source (development)
 
 2. Install dependencies and run the CLI directly:
 
-   # Install workspace dependencies
-   npm ci
+    # Install dependencies
+    npm ci
 
-   # Run the CLI from the repository root
-   node src/cli.js scripts/example.yaml
+    # Run the CLI from the repository root
+    node src/cli.js scripts/example.yaml
 
-Build a standalone executable (apps/pptr)
+Build a standalone executable
 
-The CLI app lives in `apps/pptr` and can be packaged with `pkg` to create
-platform binaries.
+The CLI can be packaged with `pkg` to create platform binaries. The
+packaging configuration is defined in the root package.json and the CLI
+entrypoint is `src/cli.js`.
 
-   cd apps/pptr
    npm ci
    npm run build
 
-Binaries are written to `apps/pptr/dist`.
+Binaries are written to `dist/`.
 
 Docker
 
@@ -119,8 +119,7 @@ Project layout
 
 `/pptr` (repository root)
 
-- `apps/pptr/` - CLI app and packaging config (`apps/pptr/src/cli.js`)
-- `libs/pptr-core/` - core interpreter, parser, runner, utilities
+- `src/` - application source: `src/cli.js` and `src/libs/` (previously libs/pptr-core)
 - `docs/` - user documentation
 - `scripts/` - example scripts
 - `Dockerfile` and root `package.json`

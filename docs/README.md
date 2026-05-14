@@ -2,11 +2,10 @@
 
 A concise reference for the pptr YAML-based browser automation runner.
 
-This repository contains a small CLI application (apps/pptr) and a reusable
-core library (libs/pptr-core) that execute automation scripts written in YAML.
-The docs below explain how to run the CLI locally, in Docker, or as a
-packaged binary, and where to find the detailed actions reference and
-examples.
+This repository contains a small CLI application and a reusable core
+library that execute automation scripts written in YAML. The core library
+was previously split into a subpackage (libs/pptr-core) but has been merged
+into this repository under `src/libs/`.
 
 Installation
 
@@ -114,8 +113,7 @@ Project layout
 
 ```
 /pptr/
-├── apps/pptr/           # CLI app and packaging config (apps/pptr/src/cli.js)
-├── libs/pptr-core/      # Core interpreter, parser, runner, utilities
+├── src/                 # CLI (src/cli.js) and core library (src/libs)
 ├── docs/                # Documentation (this file + actions/examples)
 ├── scripts/             # Example YAML scripts
 ├── Dockerfile
