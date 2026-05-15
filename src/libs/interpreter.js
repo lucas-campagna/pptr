@@ -21,6 +21,9 @@ class Interpreter {
     this.closureDepth = 0;
     this.subcommands = options.subcommands || [];
     this.imports = options.imports || {};
+    this.serverPort = options.server || null;
+    this.routes = options.routes || {};
+    this.httpServer = null;
   }
 
   async delay(ms) {
@@ -207,6 +210,11 @@ class Interpreter {
     }
 
     this.logger.debug('Automation complete');
+
+    if (this.serverPort && Object.keys(this.routes).length > 0) {
+      await this.startServer(page);
+    }
+
     return this.vars.getAll();
   }
 
@@ -786,10 +794,10 @@ class Interpreter {
       const lastLine = lines[lines.length - 1].trim();
 
       if (lines.length > 1) {
-        const fn = new Function(...keys, `${lines.slice(0, lines.length - 1).join("\n")}\nreturn (${lastLine});`);
+        const fn = new Function(...keys, `${lines.slice(0, lines.length - 1).join("\n")}\nreturn ${lastLine};`);
         return fn(...values);
       } else {
-        const fn = new Function(...keys, `return (${code})`);
+        const fn = new Function(...keys, `return ${code}`);
         return fn(...values);
       }
     }, allVars, code);
@@ -1043,6 +1051,205 @@ class Interpreter {
     } else {
       this.vars.set('$result', value);
     }
+  }
+
+  async startServer(page) {
+    const http = require('http');
+    const port = this.serverPort;
+
+    this.httpServer = http.createServer(async (req, res) => {
+      await this.handleRequest(req, res, page);
+    });
+
+    await new Promise((resolve, reject) => {
+      this.httpServer.listen(port, () => {
+        this.logger.write('INFO', `Server listening on http://localhost:${port}`);
+        this.logger.write('INFO', `Routes available:`);
+        for (const [path, route] of Object.entries(this.routes)) {
+          this.logger.write('INFO', `  ${route.method} ${path}`);
+        }
+        this.logger.write('INFO', 'Press Ctrl+C to stop the server');
+        resolve();
+      }).on('error', reject);
+    });
+
+    await this.setupShutdown();
+
+    return new Promise(() => {});
+  }
+
+  async handleRequest(req, res, page) {
+    const method = req.method;
+    const url = new URL(req.url, `http://localhost:${this.serverPort}`);
+    const pathname = url.pathname;
+
+    const match = this.matchRoute(method, pathname);
+
+    if (!match) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'error', message: `Route not found: ${method} ${pathname}` }));
+      return;
+    }
+
+    const { route, params } = match;
+
+    this.logger.write('INFO', `Request: ${method} ${pathname}`);
+
+    const timeout = route.timeout || 30000;
+
+    try {
+      const result = await this.executeRouteActions(req, res, url, params, route, page);
+
+      if (res.writableEnded) return;
+
+      const responseHeaders = {
+        'Content-Type': 'application/json',
+      };
+
+      if (route.headers) {
+        Object.assign(responseHeaders, route.headers);
+      }
+
+      res.writeHead(200, responseHeaders);
+      res.end(JSON.stringify({ status: 'ok', result: result }));
+    } catch (err) {
+      if (res.writableEnded) return;
+
+      this.logger.write('ERROR', `Route error: ${err.message}`);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'error', message: err.message }));
+    }
+  }
+
+  async executeRouteActions(req, res, url, params, route, page) {
+    const savedVars = this.vars.getAll();
+
+    this.vars.set('params', params);
+
+    const query = {};
+    for (const [key, value] of url.searchParams.entries()) {
+      query[key] = value;
+    }
+    this.vars.set('query', query);
+
+    this.vars.set('headers', req.headers);
+
+    let body = {};
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('application/json')) {
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const raw = Buffer.concat(chunks).toString();
+      try {
+        body = JSON.parse(raw);
+      } catch (e) {
+        body = { raw };
+      }
+    } else if (contentType.includes('application/x-www-form-urlencoded')) {
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const raw = Buffer.concat(chunks).toString();
+      const searchParams = new URLSearchParams(raw);
+      for (const [key, value] of searchParams.entries()) {
+        body[key] = value;
+      }
+    } else {
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      body = { raw: Buffer.concat(chunks).toString() };
+    }
+    this.vars.set('body', body);
+
+    let result = null;
+
+    try {
+      await this.executeActions(page, route.actions);
+      result = this.vars.get('$result');
+    } catch (e) {
+      if (e.message === 'BREAK' || e.message === 'CONTINUE' || e.message === 'RETURN') {
+        result = this.vars.get('$result');
+      } else {
+        throw e;
+      }
+    } finally {
+      for (const [key, value] of Object.entries(savedVars)) {
+        this.vars.set(key, value);
+      }
+    }
+
+    return result;
+  }
+
+  matchRoute(method, pathname) {
+    const normalizedPathname = pathname.endsWith('/') && pathname !== '/' ? pathname.slice(0, -1) : pathname;
+
+    let bestMatch = null;
+    let bestParamCount = -1;
+
+    for (const [routePath, route] of Object.entries(this.routes)) {
+      if (route.method !== method) continue;
+
+      const match = this.comparePath(routePath, normalizedPathname);
+      if (match) {
+        const paramCount = Object.keys(match.params).length;
+        if (paramCount > bestParamCount) {
+          bestMatch = { route, params: match.params };
+          bestParamCount = paramCount;
+        }
+      }
+    }
+
+    return bestMatch;
+  }
+
+  comparePath(routePath, requestPath) {
+    const routeParts = routePath.split('/').filter(Boolean);
+    const requestParts = requestPath.split('/').filter(Boolean);
+
+    if (routeParts.length !== requestParts.length) {
+      return null;
+    }
+
+    const params = {};
+
+    for (let i = 0; i < routeParts.length; i++) {
+      const routePart = routeParts[i];
+      const requestPart = requestParts[i];
+
+      if (routePart.startsWith(':')) {
+        const paramName = routePart.slice(1);
+        params[paramName] = decodeURIComponent(requestPart);
+      } else if (routePart !== requestPart) {
+        return null;
+      }
+    }
+
+    return { params };
+  }
+
+  async setupShutdown() {
+    const shutdown = async () => {
+      this.logger.write('INFO', 'Shutting down server...');
+      if (this.httpServer) {
+        this.httpServer.close();
+      }
+      try {
+        if (this.browser) {
+          await this.browser.close();
+          this.logger.debug('Browser closed');
+        }
+      } catch (e) {}
+      process.exit(0);
+    };
+
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
   }
 }
 

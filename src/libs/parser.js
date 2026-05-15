@@ -38,6 +38,7 @@ class Parser {
         actions: this.normalizeActions(doc),
         tabs: [],
         subcommands: {},
+        routes: {},
       };
     }
 
@@ -51,6 +52,7 @@ class Parser {
       actions: this.normalizeActions(doc.actions || []),
       tabs: this.normalizeTabs(doc.tabs || []),
       subcommands: this.normalizeSubcommands(doc.subcommands || {}),
+      routes: this.normalizeRoutes(doc.routes || {}),
     };
 
     return script;
@@ -382,6 +384,32 @@ class Parser {
       open: tab.open || tab.url,
       actions: this.normalizeActions(tab.actions || []),
     }));
+  }
+
+  normalizeRoutes(routes) {
+    if (typeof routes !== 'object' || routes === null || Array.isArray(routes)) {
+      return {};
+    }
+
+    const result = {};
+
+    for (const [path, def] of Object.entries(routes)) {
+      if (typeof def !== 'object' || def === null) {
+        continue;
+      }
+
+      const normalizedPath = path.startsWith('/') ? path : '/' + path;
+
+      result[normalizedPath] = {
+        method: (def.method || 'GET').toUpperCase(),
+        path: normalizedPath,
+        actions: this.normalizeActions(def.actions || []),
+        timeout: def.timeout || null,
+        headers: def.headers || null,
+      };
+    }
+
+    return result;
   }
 }
 

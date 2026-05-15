@@ -233,6 +233,14 @@ function inlineImports(doc, importsRegistry) {
 
   recurseSubcommands(compiled.subcommands);
 
+  if (compiled.routes && typeof compiled.routes === 'object') {
+    for (const [path, route] of Object.entries(compiled.routes)) {
+      if (route && Array.isArray(route.actions)) {
+        route.actions = flattenActions(route.actions, importsRegistry, compiled, nameMap);
+      }
+    }
+  }
+
   return compiled;
 }
 
@@ -307,6 +315,13 @@ async function compileYamlString(yamlContent, baseDir) {
     if (out.subcommands && typeof out.subcommands === 'object') {
       for (const [k, sc] of Object.entries(out.subcommands)) {
         out.subcommands[k] = recurse(sc);
+      }
+    }
+    if (out.routes && typeof out.routes === 'object') {
+      for (const [k, route] of Object.entries(out.routes)) {
+        if (route && Array.isArray(route.actions)) {
+          route.actions = route.actions.map(a => recurse(shortifyAction(a)));
+        }
       }
     }
     return out;

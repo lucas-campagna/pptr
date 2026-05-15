@@ -26,6 +26,7 @@ class Runner {
       vars: options.vars || {},
       version: options.version || "1.0.0",
       subcommands: options.subcommands || [],
+      server: options.server || null,
       ...options,
     };
   }
@@ -367,6 +368,8 @@ class Runner {
         debug: this.options.debug,
         subcommands: this.options.subcommands,
         imports: importsRegistry,
+        server: this.options.server,
+        routes: script.routes,
       });
 
       result = await interpreter.run(script);
@@ -400,10 +403,12 @@ class Runner {
         throw err;
       }
     } finally {
-      try {
-        if (browser) await browser.close();
-      } catch (e) {}
-      logger.debug("Browser closed");
+      if (!this.options.server) {
+        try {
+          if (browser) await browser.close();
+        } catch (e) {}
+        logger.debug("Browser closed");
+      }
     }
 
     return result;
@@ -523,12 +528,16 @@ class Runner {
         logPath,
         debug: this.options.debug,
         subcommands: this.options.subcommands,
+        server: this.options.server,
+        routes: script.routes,
       });
 
       result = await interpreter.run(script);
     } finally {
-      await browser.close();
-      logger.debug("Browser closed");
+      if (!this.options.server) {
+        await browser.close();
+        logger.debug("Browser closed");
+      }
     }
 
     return result;

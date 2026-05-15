@@ -34,6 +34,7 @@ try {
           if (a === '--wrapper') { opts.wrapper = raw[i+1]; i += 2; continue; }
           if (a === '-s' || a === '--session') { opts.session = raw[i+1]; i += 2; continue; }
           if (a === '--clear-session') { opts.clearSession = true; i++; continue; }
+          if (a === '--server') { const next = raw[i+1]; if (next && !next.startsWith('-')) { opts.server = parseInt(next, 10); i += 2; } else { opts.server = true; i++; } continue; }
           if (raw[i+1] && !raw[i+1].startsWith('-')) { i += 2; } else { i++; }
         } else { positionals.push(a); i++; }
       }
@@ -192,6 +193,7 @@ program
   .option('-o, --output <path>', 'compile script to standalone shell script')
   .option('--wrapper <type>', "force wrapper (bash|powershell|auto)", 'auto')
   .option('--list-browsers', 'list all detected browser executables and exit')
+  .option('--server [port]', 'start a localhost server for routes (default port 3000)')
   .action((scriptPath, subcommands, options) => {
     const rawArgs = process.argv.slice(2);
     let subcommandList = subcommands || [];
@@ -231,6 +233,7 @@ program
       clearSession: !!options.clearSession,
       version,
       subcommands: subcommandList,
+      server: options.server !== undefined ? (options.server === true ? 3000 : options.server) : null,
     };
 
     if (options.var) {
