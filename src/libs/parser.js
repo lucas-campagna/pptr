@@ -159,6 +159,9 @@ class Parser {
           }
           return { type: 'log', ...value };
 
+        case 'run':
+          return { type: 'run', code: value };
+
         case 'open':
           return { type: 'open', url: value };
 

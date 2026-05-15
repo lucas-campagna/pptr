@@ -420,6 +420,10 @@ class Interpreter {
         await this.handleExtract(page, action);
         break;
 
+      case 'run':
+        await this.handleRun(page, action);
+        break;
+
       case 'pdf':
         await this.handlePdf(page, action);
         break;
@@ -767,6 +771,30 @@ class Interpreter {
       this.vars.set(action.save, value);
       this.logger.debug(`Extracted value: ${value}`);
     }
+  }
+
+  async handleRun(page, action) {
+    const code = this.vars.interpolate(action.code);
+
+    const allVars = this.vars.getAll();
+
+    const result = await page.evaluate((vars, code) => {
+      const keys = Object.keys(vars);
+      const values = Object.values(vars);
+
+      const lines = code.split('\n').filter(l => l.trim());
+      const lastLine = lines[lines.length - 1].trim();
+
+      if (lines.length > 1) {
+        const fn = new Function(...keys, `${lines.slice(0, lines.length - 1).join("\n")}\nreturn (${lastLine});`);
+        return fn(...values);
+      } else {
+        const fn = new Function(...keys, `return (${code})`);
+        return fn(...values);
+      }
+    }, allVars, code);
+
+    this.vars.set('$result', result);
   }
 
   async handlePdf(page, action) {

@@ -115,3 +115,84 @@ describe('Interpreter control structures (unit)', () => {
     assert.ok(msgs.includes('B'));
   });
 });
+
+describe('Interpreter run action (unit)', () => {
+  function makeLogger() {
+    const logs = [];
+    const logger = new Logger(null, false);
+    logger.logs = logs;
+    logger.write = (level, message) => logs.push({ level, message });
+    return logger;
+  }
+
+  function makeInterpreter(vars, page) {
+    const fakeBrowser = {
+      newPage: async () => page || {},
+    };
+    const logger = makeLogger();
+    return new Interpreter(fakeBrowser, { vars, logger });
+  }
+
+  it('executes simple JS expression and saves to $result', async () => {
+    const vars = new VariableEngine({}, []);
+    const page = {
+      evaluate: async (fn) => fn({}, '1 + 1'),
+    };
+    const it = makeInterpreter(vars, page);
+    const actions = [{ type: 'run', code: '1 + 1' }];
+
+    await it.executeActions(page, actions);
+    assert.strictEqual(vars.get('$result'), 2);
+  });
+
+  it('passes variables to JS context', async () => {
+    const vars = new VariableEngine({}, []);
+    vars.set('x', 3);
+    vars.set('y', 4);
+    const page = {
+      evaluate: async (fn, varsArg, code) => fn(varsArg, code),
+    };
+    const it = makeInterpreter(vars, page);
+    const actions = [{ type: 'run', code: 'x + y' }];
+
+    await it.executeActions(page, actions);
+    assert.strictEqual(vars.get('$result'), 7);
+  });
+
+  it('uses previous $result in run code', async () => {
+    const vars = new VariableEngine({}, []);
+    vars.set('$result', 10);
+    const page = {
+      evaluate: async (fn, varsArg, code) => fn(varsArg, code),
+    };
+    const it = makeInterpreter(vars, page);
+    const actions = [{ type: 'run', code: '$result * 2' }];
+
+    await it.executeActions(page, actions);
+    assert.strictEqual(vars.get('$result'), 20);
+  });
+
+  it('executes multi-line JS and returns last expression', async () => {
+    const vars = new VariableEngine({}, []);
+    const page = {
+      evaluate: async (fn, varsArg, code) => fn(varsArg, code),
+    };
+    const it = makeInterpreter(vars, page);
+    const actions = [{ type: 'run', code: 'const a = 5\nconst b = 10\na + b' }];
+
+    await it.executeActions(page, actions);
+    assert.strictEqual(vars.get('$result'), 15);
+  });
+
+  it('handles async JS (Promise.resolve)', async () => {
+    const vars = new VariableEngine({}, []);
+    const page = {
+      evaluate: async (fn, varsArg, code) => Promise.resolve(fn(varsArg, code)),
+    };
+    const it = makeInterpreter(vars, page);
+    const actions = [{ type: 'run', code: 'Promise.resolve(42)' }];
+
+    await it.executeActions(page, actions);
+    assert.strictEqual(vars.get('$result'), 42);
+  });
+});
