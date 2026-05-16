@@ -19,7 +19,7 @@ class Runner {
   constructor(options = {}) {
     this.options = {
       headless: options.headless !== false,
-      slowMo: options.slowMo || 0,
+      slowMo: options.slowMo,
       timeout: options.timeout || 3000,
       logPath: options.logPath,
       debug: options.debug || false,
@@ -245,9 +245,8 @@ class Runner {
       "--ignore-certificate-errors",
     ];
 
-    if (meta.headless === false) {
-      this.options.headless = false;
-    } else {
+    const useHeadless = this.options.headless !== false;
+    if (useHeadless) {
       browserArgs.push("--headless=new");
     }
 
@@ -255,8 +254,8 @@ class Runner {
       process.env;
 
     const launchOptions = {
-      headless: this.options.headless,
-      slowMo: meta.slowMo || this.options.slowMo,
+      headless: useHeadless,
+      slowMo: this.options.slowMo ?? meta.slowMo ?? 0,
       args: browserArgs,
       env: { ...restEnv },
       dumpio: !!this.options.debug,
@@ -433,9 +432,8 @@ class Runner {
       "--ignore-certificate-errors",
     ];
 
-    if (meta.headless === false) {
-      this.options.headless = false;
-    } else {
+    const useHeadless = this.options.headless !== false;
+    if (useHeadless) {
       browserArgs.push("--headless=new");
     }
 
@@ -443,8 +441,8 @@ class Runner {
       process.env;
 
     const launchOptions = {
-      headless: this.options.headless,
-      slowMo: meta.slowMo || this.options.slowMo,
+      headless: useHeadless,
+      slowMo: this.options.slowMo ?? meta.slowMo ?? 0,
       args: browserArgs,
       env: { ...restEnv },
       dumpio: !!this.options.debug,

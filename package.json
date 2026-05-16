@@ -4,9 +4,7 @@
   "private": true,
   "description": "YAML-based Puppeteer automation script runner",
   "main": "src/index.js",
-  "bin": {
-    "pptr": "src/cli.js"
-  },
+  "bin": "src/cli.js",
   "scripts": {
     "start": "node src/cli.js",
     "test": "jest --runInBand",

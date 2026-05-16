@@ -28,6 +28,7 @@ try {
           if (a === '--list-browsers') { opts.listBrowsers = true; i++; continue; }
           if (a === '--no-headless') { opts.headless = false; i++; continue; }
           if (a === '--headless') { opts.headless = true; i++; continue; }
+          if (a === '--dev') { opts.dev = true; i++; continue; }
           if (a === '-d' || a === '--debug') { opts.debug = true; i++; continue; }
           if (a === '--log') { opts.log = raw[i+1]; i += 2; continue; }
           if (a === '-v' || a === '--var') { opts.var = opts.var || []; const next = raw[i+1]; opts.var.push({ key: next.split('=')[0], value: next.split('=').slice(1).join('=') }); i += 2; continue; }
@@ -42,7 +43,7 @@ try {
       const subs = positionals.slice(1);
       try { if (this._action) this._action(script, subs, opts); } catch (err) { console.error(err && err.message ? err.message : err); process.exit(1); }
     }
-    help() { console.log('Usage: pptr [script] [subcommands] [options]'); process.exit(0); }
+    help() { console.log('Usage: pptr [script] [subcommands] [options]'); console.log('  script: path to YAML script file (not needed with -e)'); process.exit(0); }
   }
   Command = MinimalCommand;
 }
@@ -180,11 +181,12 @@ const program = new Command();
 program
   .name('pptr')
   .version(version)
-  .argument('[script]', 'path to YAML script file')
+  .argument('[script]', 'path to YAML script file (not needed with -e)')
   .argument('[subcommands...]', 'subcommands to execute')
   .option('-e, --execute <yaml>', 'YAML content to execute directly')
   .option('--headless', 'run in headless mode (default)', true)
   .option('--no-headless', 'run in visible browser')
+  .option('--dev', 'show browser with 250ms action delay')
   .option('-d, --debug', 'enable debug level logging', false)
   .option('--log <path>', 'path to log file')
   .option('-v, --var <VAR=VALUE>', 'override variable (can be used multiple times)', collectVars, [])
@@ -225,7 +227,8 @@ program
     }
 
     const runOptions = {
-      headless: options.headless,
+      headless: options.dev ? false : options.headless,
+      slowMo: options.dev ? 250 : undefined,
       logPath: options.log || null,
       debug: options.debug || false,
       vars: {},
