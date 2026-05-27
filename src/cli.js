@@ -43,7 +43,7 @@ try {
       const subs = positionals.slice(1);
       try { if (this._action) this._action(script, subs, opts); } catch (err) { console.error(err && err.message ? err.message : err); process.exit(1); }
     }
-    help() { console.log('Usage: pptr [script] [subcommands] [options]'); console.log('  script: path to YAML script file (not needed with -e)'); process.exit(0); }
+    help() { console.log('Usage: pptr [script] [subcommands] [options]'); console.log('  script: path to YAML script file (not needed with -e or --dev)'); process.exit(0); }
   }
   Command = MinimalCommand;
 }
@@ -181,7 +181,7 @@ const program = new Command();
 program
   .name('pptr')
   .version(version)
-  .argument('[script]', 'path to YAML script file (not needed with -e)')
+  .argument('[script]', 'path to YAML script file (not needed with -e or --dev)')
   .argument('[subcommands...]', 'subcommands to execute')
   .option('-e, --execute <yaml>', 'YAML content to execute directly')
   .option('--headless', 'run in headless mode (default)', true)
@@ -196,6 +196,7 @@ program
   .option('--wrapper <type>', "force wrapper (bash|powershell|auto)", 'auto')
   .option('--list-browsers', 'list all detected browser executables and exit')
   .option('--server [port]', 'start a localhost server for routes (default port 3000)')
+  .option('--capture-file <path>', 'path to save captured interactions (used with --dev)')
   .action((scriptPath, subcommands, options) => {
     const rawArgs = process.argv.slice(2);
     let subcommandList = subcommands || [];
@@ -237,6 +238,8 @@ program
       version,
       subcommands: subcommandList,
       server: options.server !== undefined ? (options.server === true ? 3000 : options.server) : null,
+      loadExtension: options.dev ? path.resolve(__dirname, '..', 'extension') : null,
+      captureFile: options.dev ? (options.captureFile || true) : options.captureFile,
     };
 
     if (options.var) {
@@ -247,9 +250,14 @@ program
 
     const runner = new Runner(runOptions);
 
-    const runPromise = yamlContent
-      ? runner.runFromString(yamlContent)
-      : runner.run(effectiveScriptPath);
+    let runPromise;
+    if (options.dev && !effectiveScriptPath && !yamlContent) {
+      runPromise = runner.runDev();
+    } else {
+      runPromise = yamlContent
+        ? runner.runFromString(yamlContent)
+        : runner.run(effectiveScriptPath);
+    }
 
     const listBrowsers = options.listBrowsers || false;
     if (listBrowsers) {

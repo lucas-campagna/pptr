@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pptr Capture</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>pptr Capture</h1>
+      <span id="status-badge" class="badge capturing">Recording</span>
+    </header>
+
+    <div class="info">
+      <div class="info-item">
+        <span class="label">Actions:</span>
+        <span id="action-count">0</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Page:</span>
+        <span id="current-url" class="truncate">-</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="toggle-btn" class="btn btn-primary">
+        Pause Capture
+      </button>
+      <button id="clear-btn" class="btn btn-secondary">
+        Clear
+      </button>
+    </div>
+
+    <div id="recent-actions" class="recent-actions">
+      <h3>Recent Actions</h3>
+      <ul id="action-list"></ul>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

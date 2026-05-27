@@ -250,6 +250,12 @@ class Runner {
       browserArgs.push("--headless=new");
     }
 
+    if (this.options.loadExtension && !useHeadless) {
+      const extPath = path.resolve(this.options.loadExtension);
+      browserArgs.push(`--load-extension=${extPath}`);
+      logger.debug(`Loading browser extension from: ${extPath}`);
+    }
+
     const { HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy, ...restEnv } =
       process.env;
 
@@ -437,6 +443,12 @@ class Runner {
       browserArgs.push("--headless=new");
     }
 
+    if (this.options.loadExtension && !useHeadless) {
+      const extPath = path.resolve(this.options.loadExtension);
+      browserArgs.push(`--load-extension=${extPath}`);
+      logger.debug(`Loading browser extension from: ${extPath}`);
+    }
+
     const { HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy, ...restEnv } =
       process.env;
 
@@ -517,8 +529,19 @@ class Runner {
     }
 
     let result;
+    let captureReader = null;
+
     try {
       const vars = this.createVariableEngine(script);
+
+      if (this.options.loadExtension && this.options.captureFile) {
+        const CaptureReader = require('./capture-reader');
+        captureReader = new CaptureReader(browser, {
+          captureFile: this.options.captureFile,
+          pollingInterval: 500,
+        });
+        await captureReader.start();
+      }
 
       const interpreter = new Interpreter(browser, {
         logger,
@@ -532,6 +555,9 @@ class Runner {
 
       result = await interpreter.run(script);
     } finally {
+      if (captureReader) {
+        await captureReader.finalize();
+      }
       if (!this.options.server) {
         await browser.close();
         logger.debug("Browser closed");
@@ -539,6 +565,121 @@ class Runner {
     }
 
     return result;
+  }
+
+  async runDev() {
+    const logger = new Logger(this.options.logPath, this.options.debug);
+    logger.debug("Starting pptr dev mode with extension");
+
+    const browserArgs = [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--no-zygote",
+      "--disable-gpu",
+      "--ignore-certificate-errors",
+    ];
+
+    if (this.options.loadExtension) {
+      const extPath = path.resolve(this.options.loadExtension);
+      browserArgs.push(`--load-extension=${extPath}`);
+      logger.debug(`Loading browser extension from: ${extPath}`);
+    }
+
+    const { HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy, ...restEnv } =
+      process.env;
+
+    const launchOptions = {
+      headless: false,
+      slowMo: this.options.slowMo ?? 250,
+      args: browserArgs,
+      env: { ...restEnv },
+      dumpio: !!this.options.debug,
+    };
+
+    let chromeDir;
+    let browser;
+
+    try {
+      const BrowserFinder = require('./browser-finder');
+      const systemBrowser = await BrowserFinder.findBrowser({
+        platform: process.platform,
+      });
+      if (systemBrowser) {
+        logger.debug(`Using system browser executable: ${systemBrowser}`);
+        launchOptions.executablePath = systemBrowser;
+      }
+    } catch (err) {
+      const BrowserFinder = require('./browser-finder');
+      if (err instanceof BrowserFinder.NotFoundError) {
+        logger.debug("No system browser found; will use bundled dependencies");
+      } else if (err instanceof BrowserFinder.InvalidEnvError) {
+        logger.debug(`Invalid BROWSER_PATH provided: ${err.value}`);
+        throw err;
+      } else {
+        throw err;
+      }
+    }
+
+    if (!launchOptions.executablePath) {
+      chromeDir = await this.ensureDependencies(logger);
+      launchOptions.executablePath = path.join(chromeDir, "chrome");
+      launchOptions.env = {
+        ...restEnv,
+        LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
+      };
+    }
+
+    try {
+      browser = await puppeteer.launch(launchOptions);
+    } catch (err) {
+      if (launchOptions.executablePath && (!chromeDir || launchOptions.executablePath !== path.join(chromeDir, "chrome"))) {
+        logger.debug(`System browser launch failed, falling back to bundled deps: ${err.message}`);
+        chromeDir = chromeDir || (await this.ensureDependencies(logger));
+        launchOptions.executablePath = path.join(chromeDir, "chrome");
+        launchOptions.env = {
+          ...restEnv,
+          LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
+        };
+        browser = await puppeteer.launch(launchOptions);
+      } else {
+        throw err;
+      }
+    }
+
+    let captureReader = null;
+
+    try {
+      if (this.options.loadExtension && this.options.captureFile) {
+        const CaptureReader = require('./capture-reader');
+        captureReader = new CaptureReader(browser, {
+          captureFile: this.options.captureFile,
+          pollingInterval: 500,
+        });
+        await captureReader.start();
+      }
+
+      const page = await browser.newPage();
+      await page.goto('about:blank');
+
+      logger.debug("Dev mode active. Browser open. Waiting for disconnect...");
+
+      await new Promise((resolve) => {
+        browser.on('disconnected', () => {
+          logger.debug("Browser disconnected");
+          resolve();
+        });
+      });
+
+    } finally {
+      if (captureReader) {
+        await captureReader.finalize();
+      }
+      if (browser && browser.isConnected()) {
+        await browser.close().catch(() => {});
+      }
+      logger.debug("Dev mode ended");
+    }
   }
 }
 
