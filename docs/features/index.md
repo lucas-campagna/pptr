@@ -19,10 +19,9 @@ Conceptual guides for pptr's major features.
 
 ```yaml
 routes:
-  get:
-    /hello:
-      actions:
-        - return: "Hello World!"
+  /hello:
+    GET:
+      - return: "Hello World!"
 ```
 
 ### Functions

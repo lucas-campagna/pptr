@@ -1,3 +1,8 @@
+---
+name: pptr-server
+description: Reference guide for pptr server mode. Use when building HTTP APIs, webhook handlers, or lightweight scraping services with pptr YAML scripts.
+---
+
 # Server Mode
 
 Run pptr as an HTTP server to expose automation scripts as REST endpoints.

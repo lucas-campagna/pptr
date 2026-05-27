@@ -1,3 +1,8 @@
+---
+name: pptr-variables
+description: Reference guide for pptr variables. Use when working with variable declaration, interpolation, expressions, and environment variables in YAML scripts.
+---
+
 # Variables
 
 Variables store values that can be reused throughout your script. They support interpolation, expressions, and environment variables.

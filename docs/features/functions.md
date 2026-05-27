@@ -1,3 +1,8 @@
+---
+name: pptr-functions
+description: Reference guide for pptr functions. Use when defining reusable action blocks with parameters in YAML scripts.
+---
+
 # Functions
 
 Define reusable action blocks with parameters to avoid repetition and keep scripts DRY.
