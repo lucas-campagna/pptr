@@ -1192,10 +1192,10 @@ class Interpreter {
     let bestMatch = null;
     let bestParamCount = -1;
 
-    for (const [routePath, route] of Object.entries(this.routes)) {
+    for (const [routeKey, route] of Object.entries(this.routes)) {
       if (route.method !== method) continue;
 
-      const match = this.comparePath(routePath, normalizedPathname);
+      const match = this.comparePath(route.path, normalizedPathname);
       if (match) {
         const paramCount = Object.keys(match.params).length;
         if (paramCount > bestParamCount) {

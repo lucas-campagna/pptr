@@ -391,6 +391,7 @@ class Parser {
       return {};
     }
 
+    const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
     const result = {};
 
     for (const [path, def] of Object.entries(routes)) {
@@ -400,13 +401,18 @@ class Parser {
 
       const normalizedPath = path.startsWith('/') ? path : '/' + path;
 
-      result[normalizedPath] = {
-        method: (def.method || 'GET').toUpperCase(),
-        path: normalizedPath,
-        actions: this.normalizeActions(def.actions || []),
-        timeout: def.timeout || null,
-        headers: def.headers || null,
-      };
+      for (const method of HTTP_METHODS) {
+        if (def[method]) {
+          const actions = Array.isArray(def[method]) ? def[method] : [def[method]];
+          result[`${normalizedPath}:${method}`] = {
+            method,
+            path: normalizedPath,
+            actions: this.normalizeActions(actions.flat()),
+            timeout: def.timeout || null,
+            headers: def.headers || null,
+          };
+        }
+      }
     }
 
     return result;

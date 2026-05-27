@@ -122,6 +122,7 @@ Project layout
 
 Where to read more
 
+- `docs/features/` — feature guides (server, functions, variables, meta)
 - `docs/actions.md` — complete actions reference (click, type, wait, extract, etc.)
 - `docs/examples.md` — practical examples and workflows
 
