@@ -675,9 +675,6 @@ class Runner {
       if (captureReader) {
         await captureReader.finalize();
       }
-      if (browser && browser.isConnected()) {
-        await browser.close().catch(() => {});
-      }
       logger.debug("Dev mode ended");
     }
   }
