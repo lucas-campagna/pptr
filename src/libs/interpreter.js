@@ -823,6 +823,7 @@ class Interpreter {
     }, allVars, code);
 
     this.vars.set('$result', result);
+    this.vars.set('result', result);
   }
 
   async handleJs(page, action) {
@@ -846,6 +847,7 @@ class Interpreter {
     }, allVars, code);
 
     this.vars.set('$result', result);
+    this.vars.set('result', result);
   }
 
   async handleNode(action) {
