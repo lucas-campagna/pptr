@@ -286,7 +286,7 @@ program
         if (err && err.name === 'MultipleFoundError' && Array.isArray(err.found)) {
           console.error('Error: Multiple browser executables found:');
           for (const p of err.found) console.error(`  - ${p}`);
-          console.error("Set BROWSER_PATH to the exact executable you want to use, or set AUTO_BROWSER=1 to pick the first automatically.");
+          console.error("Set BROWSER_PATH to the exact executable you want to use, or set AUTO_BROWSER=0 to disable auto-selection.");
           process.exit(1);
         } else if (err && err.name === 'InvalidEnvError') {
           console.error(`Error: invalid BROWSER_PATH: ${err.value}`);

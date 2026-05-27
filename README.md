@@ -86,7 +86,7 @@ Options
 Environment variables
 
 - `BROWSER_PATH` - when set it must point to the exact browser executable to use
-- `AUTO_BROWSER` - if `1` or `true`, automatically pick the first browser when multiple are found
+- `AUTO_BROWSER` - defaults to `1` (auto-select first browser when multiple are found). Set to `0` or `false` to disable.
 
 Examples
 

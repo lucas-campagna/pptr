@@ -309,13 +309,17 @@ class Runner {
         throw err;
       } else if (err instanceof BrowserFinder.MultipleFoundError) {
         const found = err.found || [];
-        if (found.length > 0) {
+        const autoBrowser = process.env.AUTO_BROWSER;
+        const shouldAutoSelect = autoBrowser !== '0' && autoBrowser !== 'false';
+        if (found.length > 0 && shouldAutoSelect) {
           logger.debug(`Multiple browser executables found: ${found.join(', ')}`);
           console.warn('Multiple browser executables found:');
           for (const p of found) console.warn(`  - ${p}`);
-          console.warn(`Using the first one: ${found[0]} (set BROWSER_PATH to choose a different one)`);
+          console.warn(`Using the first one: ${found[0]} (set BROWSER_PATH to choose a different one, or AUTO_BROWSER=0 to disable)`);
           launchOptions.executablePath = found[0];
           usedSystemBrowser = true;
+        } else if (found.length > 0) {
+          throw err;
         } else {
           throw err;
         }
