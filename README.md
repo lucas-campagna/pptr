@@ -86,6 +86,7 @@ Options
 Environment variables
 
 - `BROWSER_PATH` - when set it must point to the exact browser executable to use
+- `BROWSER` - name of browser to prioritize when multiple are found (e.g., `edge`, `chrome`, `firefox`, `brave`, `chromium`, `opera`, `safari`)
 - `AUTO_BROWSER` - defaults to `1` (auto-select first browser when multiple are found). Set to `0` or `false` to disable.
 
 Examples

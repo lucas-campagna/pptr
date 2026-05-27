@@ -355,6 +355,28 @@ async function findBrowser(opts = {}) {
     throw new NotFoundError(candidateNames);
   }
 
+  const browserEnv = process.env.BROWSER;
+  if (browserEnv && validated.length > 1) {
+    const browserLower = browserEnv.toLowerCase();
+    const browserAliases = {
+      chrome: ["google-chrome", "google-chrome-stable", "chrome", "chromium", "chromium-browser"],
+      edge: ["microsoft-edge", "msedge"],
+      firefox: ["firefox"],
+      brave: ["brave-browser", "brave"],
+      opera: ["opera"],
+      safari: ["safari"],
+      chromium: ["chromium", "chromium-browser"],
+    };
+    const aliases = browserAliases[browserLower] || [browserLower];
+    const prioritized = validated.filter((p) => {
+      const basename = path.basename(p).toLowerCase();
+      return aliases.some((alias) => basename.includes(alias));
+    });
+    if (prioritized.length > 0) {
+      return path.resolve(prioritized[0]);
+    }
+  }
+
   if (validated.length > 1) {
     throw new MultipleFoundError(validated);
   }
