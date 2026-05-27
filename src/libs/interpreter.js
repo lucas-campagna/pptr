@@ -889,8 +889,18 @@ class Interpreter {
 
   async handleCurl(action) {
     const { exec } = require('child_process');
+    const fs = require('fs');
+    const os = require('os');
+
+    const cookieJarPath = action.cookieJar || `${os.tmpdir()}/pptr_curl_cookies_${process.pid}.txt`;
 
     let command = 'curl';
+    if (action.cookie || action.cookieJar) {
+      fs.writeFileSync(cookieJarPath, '');
+    }
+    if (action.cookie || action.cookieJar) {
+      command += ` -b "${cookieJarPath}" -c "${cookieJarPath}"`;
+    }
     if (action.method && action.method !== 'GET') {
       command += ` -X ${action.method}`;
     }
