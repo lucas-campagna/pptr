@@ -432,6 +432,26 @@ class Interpreter {
         await this.handleRun(page, action);
         break;
 
+      case 'js':
+        await this.handleJs(page, action);
+        break;
+
+      case 'node':
+        await this.handleNode(action);
+        break;
+
+      case 'shell':
+        await this.handleShell(action);
+        break;
+
+      case 'curl':
+        await this.handleCurl(action);
+        break;
+
+      case 'choice':
+        await this.handleChoice(action);
+        break;
+
       case 'pdf':
         await this.handlePdf(page, action);
         break;
@@ -803,6 +823,156 @@ class Interpreter {
     }, allVars, code);
 
     this.vars.set('$result', result);
+  }
+
+  async handleJs(page, action) {
+    const code = this.vars.interpolate(action.code);
+    const allVars = this.vars.getAll();
+
+    const result = await page.evaluate((vars, code) => {
+      const keys = Object.keys(vars);
+      const values = Object.values(vars);
+
+      const lines = code.split('\n').filter(l => l.trim());
+      const lastLine = lines[lines.length - 1].trim();
+
+      if (lines.length > 1) {
+        const fn = new Function(...keys, `${lines.slice(0, lines.length - 1).join("\n")}\nreturn ${lastLine};`);
+        return fn(...values);
+      } else {
+        const fn = new Function(...keys, `return ${code}`);
+        return fn(...values);
+      }
+    }, allVars, code);
+
+    this.vars.set('$result', result);
+  }
+
+  async handleNode(action) {
+    const code = this.vars.interpolate(action.code);
+    const allVars = this.vars.getAll();
+
+    const fn = new Function(...Object.keys(allVars), code);
+    const result = fn(...Object.values(allVars));
+
+    this.vars.set('$result', result);
+    this.vars.set('result', result);
+  }
+
+  async handleShell(action) {
+    const { exec } = require('child_process');
+    const command = this.vars.interpolate(action.command);
+    const shell = action.shell || process.platform === 'win32' ? 'powershell' : 'bash';
+
+    const result = await new Promise((resolve, reject) => {
+      exec(command, { shell }, (error, stdout, stderr) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve({ stdout, stderr });
+        }
+      });
+    });
+
+    if (action.save === 'stdout' || action.save === 'all') {
+      this.vars.set(action.var || 'stdout', result.stdout);
+    }
+    if (action.save === 'stderr' || action.save === 'all') {
+      this.vars.set(action.var || 'stderr', result.stderr);
+    }
+    if (!action.save) {
+      this.vars.set('$result', result.stdout.trim());
+    }
+  }
+
+  async handleCurl(action) {
+    const { exec } = require('child_process');
+
+    let command = 'curl';
+    if (action.method && action.method !== 'GET') {
+      command += ` -X ${action.method}`;
+    }
+    if (action.headers) {
+      for (const [key, value] of Object.entries(action.headers)) {
+        command += ` -H "${key}: ${this.vars.interpolate(value)}"`;
+      }
+    }
+    if (action.body) {
+      const body = this.vars.interpolate(action.body);
+      command += ` -d '${body}'`;
+    }
+    if (action.output) {
+      command += ` -o ${this.vars.interpolate(action.output)}`;
+    }
+    command += ` "${this.vars.interpolate(action.url)}"`;
+
+    const result = await new Promise((resolve, reject) => {
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve({ stdout, stderr });
+        }
+      });
+    });
+
+    if (action.save === 'stdout' || action.save === 'all') {
+      this.vars.set(action.var || 'stdout', result.stdout);
+    }
+    if (action.save === 'stderr' || action.save === 'all') {
+      this.vars.set(action.var || 'stderr', result.stderr);
+    }
+    if (!action.save && !action.output) {
+      this.vars.set('$result', result.stdout.trim());
+    }
+  }
+
+  async handleChoice(action) {
+    const readline = require('readline');
+
+    if (!this._choiceRl) {
+      this._choiceRl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        terminal: false,
+        crlfDelay: Infinity,
+      });
+      this._choiceQueue = [];
+      this._choiceWaiting = null;
+
+      this._choiceRl.on('line', (line) => {
+        if (this._choiceWaiting) {
+          this._choiceWaiting(line);
+          this._choiceWaiting = null;
+        } else {
+          this._choiceQueue.push(line);
+        }
+      });
+    }
+
+    const prompt = this.vars.interpolate(action.prompt || 'Select an option:');
+    const options = action.options || [];
+    const varName = action.var || '$result';
+
+    process.stdout.write(prompt + '\n');
+    for (let i = 0; i < options.length; i++) {
+      process.stdout.write(`  ${i + 1}. ${options[i]}\n`);
+    }
+
+    const answer = await new Promise((resolve) => {
+      if (this._choiceQueue.length > 0) {
+        resolve(this._choiceQueue.shift());
+      } else {
+        this._choiceWaiting = resolve;
+      }
+    });
+
+    const index = parseInt(answer.trim(), 10) - 1;
+    if (index >= 0 && index < options.length) {
+      this.vars.set(varName, options[index]);
+    } else {
+      this.vars.set(varName, null);
+    }
   }
 
   async handlePdf(page, action) {

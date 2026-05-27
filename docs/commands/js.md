@@ -27,7 +27,7 @@ actions:
 
 The `js` action runs JavaScript in the browser's context using `page.evaluate()`. All script variables from the pptr vars context are available as JavaScript variables.
 
-The result of the last expression is stored in `$result`.
+The result of the last expression is stored in `result` and `$result`.
 
 ## Examples
 

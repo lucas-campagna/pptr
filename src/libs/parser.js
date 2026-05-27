@@ -271,6 +271,32 @@ class Parser {
             actions: this.normalizeActions(value.actions || []),
           };
 
+        case 'js':
+          return { type: 'js', code: typeof value === 'string' ? value : value.code };
+
+        case 'node':
+          return { type: 'node', code: typeof value === 'string' ? value : value.code };
+
+        case 'shell':
+          return { type: 'shell', command: typeof value === 'string' ? value : value.command };
+
+        case 'curl':
+          if (typeof value === 'string') {
+            return { type: 'curl', url: value };
+          }
+          return { type: 'curl', ...value };
+
+        case 'choice':
+          if (typeof value === 'string') {
+            return { type: 'choice', prompt: value };
+          }
+          return {
+            type: 'choice',
+            prompt: value.prompt || 'Select an option:',
+            options: value.options || [],
+            var: value.var || '$result',
+          };
+
         default:
           if (this.functions && this.functions[type]) {
             return {
