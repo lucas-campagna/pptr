@@ -427,8 +427,9 @@ class Runner {
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
-      "--no-zygote",
       "--disable-gpu",
+      "--disable-software-rasterizer",
+      "--disable-webgl",
       "--ignore-certificate-errors",
     ];
 
