@@ -10,6 +10,10 @@ Conceptual guides for pptr's major features.
 | [Functions](functions.md) | Define reusable action blocks with parameters |
 | [Variables](variables.md) | Store and interpolate values throughout scripts |
 | [Meta](meta.md) | Script metadata and configuration options |
+| [Imports](imports.md) | Import and reuse other YAML scripts |
+| [Tabs](tabs.md) | Run multiple browser tabs in parallel |
+| [Subcommands](subcommands.md) | Define named entry points in a script |
+| [Control Flow](control-flow.md) | Conditionals, loops, retry, error handling |
 
 ---
 
