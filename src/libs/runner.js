@@ -2,14 +2,12 @@ let puppeteer;
 try {
   puppeteer = require('puppeteer');
 } catch (e) {
-  // fall back to a tiny shim during migrations/tests where puppeteer
-  // isn't installed to avoid heavy native deps.
   puppeteer = require('./vendor/puppeteer-shim');
 }
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
-const { spawn } = require("child_process");
+const { spawn, exec } = require("child_process");
 const Logger = require('./logger');
 const Parser = require('./parser');
 const VariableEngine = require('./variables');
@@ -27,8 +25,11 @@ class Runner {
       version: options.version || "1.0.0",
       subcommands: options.subcommands || [],
       server: options.server || null,
+      modelsSession: options.modelsSession || 'auto',
       ...options,
     };
+    this.loadedModels = [];
+    this.sessionFile = null;
   }
 
   getVersion() {
@@ -45,12 +46,61 @@ class Runner {
 
   resolveSessionDir(session) {
     if (!session) return null;
-    // If looks like a path, use it
     if (path.isAbsolute(session) || session.includes(path.sep)) {
       return path.resolve(session);
     }
-    // default sessions directory under home
     return path.join(os.homedir(), '.pptr', 'sessions', session);
+  }
+
+  execHide(cmd) {
+    return new Promise((resolve, reject) => {
+      exec(cmd, (error, stdout, stderr) => {
+        if (error) reject(error);
+        else resolve(stdout);
+      });
+    });
+  }
+
+  async loadModels(models, logger) {
+    if (!models || Object.keys(models).length === 0) {
+      return;
+    }
+
+    for (const [name, config] of Object.entries(models)) {
+      try {
+        logger.debug(`Loading model ${name} (${config.model})...`);
+        await this.execHide(`docker model run -d ${config.model}`);
+        this.loadedModels.push(config.model);
+        logger.debug(`Model ${name} loaded`);
+      } catch (e) {
+        logger.debug(`Failed to load model ${name}: ${e.message}`);
+      }
+    }
+  }
+
+  async cleanupModels(logger) {
+    const modelsSession = this.options.modelsSession || 'auto';
+
+    if (modelsSession === 'manual') {
+      const sessionFile = this.sessionFile || path.join(os.tmpdir(), 'pptr_models_session.json');
+      const data = {
+        models: this.loadedModels,
+        cleanupCommand: this.loadedModels.map(m => `docker model rm ${m}`).join('\n'),
+      };
+      fs.writeFileSync(sessionFile, JSON.stringify(data, null, 2));
+      logger.debug(`Session file written to ${sessionFile}`);
+      return;
+    }
+
+    for (const model of this.loadedModels) {
+      try {
+        logger.debug(`Unloading model ${model}...`);
+        await this.execHide(`docker model unload ${model}`);
+      } catch (e) {
+        logger.debug(`Failed to unload model ${model}: ${e.message}`);
+      }
+    }
+    this.loadedModels = [];
   }
 
   async ensureDependencies(logger) {
@@ -223,6 +273,12 @@ class Runner {
     const logger = new Logger(logPath, this.options.debug);
     logger.debug("Initializing Puppeteer");
 
+    if (meta.models && Object.keys(meta.models).length > 0) {
+      this.options.modelsSession = meta.models.session || this.options.modelsSession;
+    }
+
+    await this.loadModels(script.models, logger);
+
     const importsRegistry = {};
     if (script.import && typeof script.import === 'object') {
       try {
@@ -267,10 +323,6 @@ class Runner {
       dumpio: !!this.options.debug,
     };
 
-    // Session support: if a session name/path was provided, resolve it to a
-    // directory and pass it to Puppeteer as `userDataDir` so profile and
-    // cookies/cache are persisted across runs. Respect the `clearSession`
-    // option by removing the directory before launching.
     try {
       const sessionDir = this.resolveSessionDir(this.options.session);
       if (sessionDir) {
@@ -282,7 +334,6 @@ class Runner {
         logger.debug(`Using session directory: ${sessionDir}`);
       }
     } catch (e) {
-      // Do not fail runs just because session handling couldn't be set up.
       logger.debug(`Failed to setup session dir: ${e && e.message ? e.message : e}`);
     }
 
@@ -379,6 +430,8 @@ class Runner {
         imports: importsRegistry,
         server: this.options.server,
         routes: script.routes,
+        models: script.models,
+        meta,
       });
 
       result = await interpreter.run(script);
@@ -411,13 +464,14 @@ class Runner {
       } else {
         throw err;
       }
-} finally {
+    } finally {
       if (!this.options.server && !this.options.dev) {
         try {
           if (browser) await browser.close();
         } catch (e) {}
         logger.debug("Browser closed");
       }
+      await this.cleanupModels(logger);
     }
 
     return result;
@@ -474,7 +528,7 @@ class Runner {
         logger.debug(`Invalid BROWSER_PATH provided: ${err.value}`);
         throw err;
       } else {
-        throw err;
+        logger.debug(`Browser finder error: ${err.message}`);
       }
     }
 

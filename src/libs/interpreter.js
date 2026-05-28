@@ -24,6 +24,9 @@ class Interpreter {
     this.serverPort = options.server || null;
     this.routes = options.routes || {};
     this.httpServer = null;
+    this.models = options.models || {};
+    this.meta = options.meta || {};
+    this.sessionHistories = {};
   }
 
   async delay(ms) {
@@ -484,6 +487,14 @@ class Interpreter {
 
       case 'closure':
         await this.handleClosure(page, action);
+        break;
+
+      case 'ask':
+        await this.handleAsk(action);
+        break;
+
+      case 'model':
+        await this.handleModel(action);
         break;
 
       default:
@@ -1413,6 +1424,129 @@ class Interpreter {
     }
 
     return { params };
+  }
+
+  getDefaultModel() {
+    const modelsConfig = this.meta.models || {};
+    if (modelsConfig.default) {
+      return modelsConfig.default;
+    }
+    const modelKeys = Object.keys(this.models);
+    if (modelKeys.length === 1) {
+      return modelKeys[0];
+    }
+    return null;
+  }
+
+  resolveModelConfig(modelName) {
+    if (!modelName) {
+      const defaultModel = this.getDefaultModel();
+      if (!defaultModel) {
+        throw new Error('No default model found. Set meta.models.default or define exactly one model.');
+      }
+      modelName = defaultModel;
+    }
+    const config = this.models[modelName];
+    if (!config) {
+      throw new Error(`Model '${modelName}' not found in models configuration.`);
+    }
+    return config;
+  }
+
+  buildContextString(modelName, prompt, actionContext, continueFlag) {
+    const config = this.models[modelName] || {};
+    const defaultContinue = this.meta.models?.continue || false;
+    const shouldContinue = actionContext !== undefined ? actionContext : defaultContinue;
+    const sessionKey = actionContext?.session || null;
+
+    let history = [];
+    if (sessionKey && this.sessionHistories[sessionKey]) {
+      history = this.sessionHistories[sessionKey];
+    }
+
+    let contextMsgs = [...(config.context || [])];
+
+    if (actionContext && actionContext.context) {
+      contextMsgs = contextMsgs.concat(actionContext.context);
+    }
+
+    let promptWithContext = '';
+    for (const msg of contextMsgs) {
+      if (msg.role === 'system') {
+        promptWithContext += `System: ${msg.content}\n`;
+      } else if (msg.role === 'user') {
+        promptWithContext += `User: ${msg.content}\n`;
+      } else if (msg.role === 'assistant') {
+        promptWithContext += `Assistant: ${msg.content}\n`;
+      }
+    }
+    promptWithContext += `User: ${prompt}`;
+
+    if (shouldContinue && sessionKey) {
+      const userMsg = { role: 'user', content: prompt };
+      history.push(userMsg);
+      this.sessionHistories[sessionKey] = history;
+    }
+
+    return promptWithContext;
+  }
+
+  async handleAsk(action) {
+    const prompt = this.vars.interpolate(action.prompt);
+    const modelName = action.model || this.getDefaultModel();
+    const config = this.resolveModelConfig(modelName);
+
+    const contextString = this.buildContextString(modelName, prompt, action, action.continue);
+    const save = action.save || '$result';
+
+    const result = await this.callModel(config, contextString);
+    this.vars.set(save, result);
+  }
+
+  async handleModel(action) {
+    const modelName = action.name;
+    const prompt = this.vars.interpolate(action.prompt);
+    const config = this.resolveModelConfig(modelName);
+
+    const contextString = this.buildContextString(modelName, prompt, action, action.continue);
+    const save = action.save || '$result';
+
+    const result = await this.callModel(config, contextString);
+    this.vars.set(save, result);
+  }
+
+  async callModel(config, prompt) {
+    return new Promise((resolve, reject) => {
+      const escapedPrompt = prompt.replace(/"/g, '\\"');
+      const cmd = `docker model run ${config.model} "${escapedPrompt}"`;
+      this.logger.debug(`Executing: ${cmd}`);
+
+      const { spawn } = require('child_process');
+      const child = spawn('bash', ['-c', cmd], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      child.on('close', (code) => {
+        if (code !== 0) {
+          this.logger.warn(`Model command exited with code ${code}: ${stderr}`);
+        }
+        resolve(stdout.trim());
+      });
+
+      child.on('error', (err) => {
+        this.logger.warn(`Model command failed: ${err.message}`);
+        resolve('');
+      });
+    });
   }
 
   async setupShutdown() {
