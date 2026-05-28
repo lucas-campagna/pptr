@@ -1,131 +1,328 @@
-# Puppeteer Script Runner Documentation
+# pptr-models Skill
 
-A concise reference for the pptr YAML-based browser automation runner.
+Copy this file to your `.claud/skills` or `.agents/skills` folder to use the pptr-models skill.
 
-This repository contains a small CLI application and a reusable core
-library that execute automation scripts written in YAML. The core library
-was previously split into a subpackage (libs/pptr-core) but has been merged
-into this repository under `src/libs/`.
-
-Installation
-
-Docker (recommended)
+## Installation
 
 ```bash
-docker build -t pptr .
+# For Claude Code
+mkdir -p ~/.claud/skills/pptr-models
+cp docs/README.md ~/.claud/skills/pptr-models/SKILL.md
+
+# For OpenCode/Agents
+mkdir -p ~/.agents/skills/pptr-models
+cp docs/README.md ~/.agents/skills/pptr-models/SKILL.md
 ```
 
-Local development
+---
 
-```bash
-# From repository root
-npm ci
+# SKILL.md
 
-# Run the CLI directly
-node src/cli.js scripts/example.yaml
-```
+```markdown
+---
+name: pptr-models
+description: Docker model integration for pptr - use AI models (LLMs) in pptr YAML scripts via 'docker model run'. Configure models, maintain sessions, and call models from automation workflows.
+---
 
-Quick start
+# pptr-models Skill
 
-Create `scripts/example.yaml`:
+Guide for using AI models with pptr's docker model integration.
+
+## Overview
+
+pptr can call AI models via `docker model run` command. The response is stored in `$result` variable for use in subsequent actions.
+
+## Quick Start
 
 ```yaml
-open: https://example.com
+models:
+  assistant:
+    model: smollm2
+
 actions:
-  - log: "Starting automation"
-  - screenshot: output.png
+  - ask: "What is 2+2?"
+  - log: "Answer: ${$result}"
 ```
 
-Run with Docker (the image runs `node src/cli.js`):
+---
 
+## Configuration
+
+### `models` Block
+
+```yaml
+models:
+  <label>:
+    model: llama3.2           # model identifier (required)
+    temperature: 0.7          # 0-2 scale
+    max_tokens: 1000          # max response tokens
+    top_p: 0.9                # nucleus sampling
+    seed: 42                  # deterministic sampling
+    response_format: text      # "text" or "json"
+    tools:                    # enabled tools
+      - websearch
+    context:                  # default context
+      - system: "You are helpful"
+      - user: "Default prompt"
+```
+
+### `meta.models` Block
+
+```yaml
+meta:
+  models:
+    default: mymodel   # default model for 'ask'
+    continue: false    # stateless by default
+    session: auto      # "auto" or "manual"
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `default` | string | first model | Default model for `ask` |
+| `continue` | boolean | `false` | Stateful conversations |
+| `session` | string | `"auto"` | Session cleanup mode |
+
+---
+
+## Context Format
+
+Context uses OpenAI message format:
+
+```yaml
+context:
+  - system: "You are a helpful assistant"
+  - user: "The user said hello"
+  - assistant: "Assistant response"
+```
+
+---
+
+## Usage
+
+### `ask` Action
+
+Call the default model:
+
+```yaml
+# Simple
+- ask: "Hello"
+
+# Full options
+- ask:
+    prompt: "Summarize this page"
+    model: mymodel          # override default
+    temperature: 0.9        # override temperature
+    max_tokens: 500        # override max_tokens
+    context:                # additional context
+      - system: "Be concise"
+    continue: true          # maintain history
+    session: chat1          # session label
+    save: response          # custom variable
+```
+
+### Direct Model Call
+
+Call a specific named model directly:
+
+```yaml
+models:
+  coder:
+    model: codellama
+  chat:
+    model: llama3.2
+
+actions:
+  - coder: "Write a Python function"
+  - chat: "Explain it"
+```
+
+---
+
+## Session and Continuity
+
+### Stateless (Default)
+
+Each call is independent:
+
+```yaml
+meta:
+  models:
+    continue: false  # default
+
+models:
+  assistant:
+    model: smollm2
+    context:
+      - system: "You are a helpful assistant"
+
+actions:
+  - ask: "My name is Alice"
+  - ask: "What is my name?"  # Returns without memory
+```
+
+### Stateful (Continue)
+
+Accumulate conversation history:
+
+```yaml
+meta:
+  models:
+    continue: true
+
+actions:
+  - ask:
+      prompt: "My name is Alice"
+      session: user1
+  - ask:
+      prompt: "What is my name?"  # Remembers Alice
+      session: user1
+```
+
+---
+
+## Variable Syntax
+
+Use `${$result}` for the special `$result` variable:
+
+```yaml
+actions:
+  - ask: "What is 2+2?"
+  - log: "Result: ${$result}"
+
+  # Or custom variable
+  - ask:
+      prompt: "Hello"
+      save: greeting
+  - log: "Said: ${greeting}"
+```
+
+---
+
+## Actions Reference
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `prompt` | string | The prompt to send (required) |
+| `model` | string | Model name to use (overrides default) |
+| `temperature` | number | Sampling temperature (0-2) |
+| `max_tokens` | integer | Max tokens in response |
+| `context` | list | Additional context messages |
+| `continue` | boolean | Use accumulated history |
+| `session` | string | Session label for continuity |
+| `save` | string | Variable name (default: `$result`) |
+
+---
+
+## Examples
+
+### Web Scraping Summary
+
+```yaml
+models:
+  assistant:
+    model: smollm2
+
+actions:
+  - open: "https://news.ycombinator.com"
+  - extract:
+      selector: ".titleline > a"
+      multiple: true
+      save: headlines
+  - ask:
+      prompt: "Summarize these headlines: ${headlines}"
+      save: summary
+  - log: "Summary: ${summary}"
+```
+
+### Stateful Conversational Scraping
+
+```yaml
+meta:
+  models:
+    continue: true
+
+models:
+  researcher:
+    model: smollm2
+    context:
+      - system: "You are researching topics on the web"
+
+actions:
+  - open: "https://example.com"
+  - ask:
+      prompt: "What is this page about?"
+      session: research
+      save: page_info
+  - click: ".next"
+  - ask:
+      prompt: "Compare to the previous page about ${page_info}"
+      session: research
+  - log: "Comparison: ${$result}"
+```
+
+### Code Generation
+
+```yaml
+models:
+  coder:
+    model: codellama
+    temperature: 0.3
+
+actions:
+  - ask:
+      prompt: "Write a Python function to fibonacci"
+      save: fib_code
+  - write:
+      file: "fib.py"
+      content: "${fib_code}"
+  - log: "Code written!"
+```
+
+---
+
+## Integration with Other Actions
+
+Model output flows through pptr's variable system:
+
+```yaml
+actions:
+  - ask:
+      prompt: "Extract the email from this text: john@example.com"
+      save: email
+  - type:
+      selector: "#email-input"
+      text: "${email}"
+  - ask:
+      prompt: "Is ${email} a valid email?"
+      save: validation
+  - if:
+      condition: "${validation}"
+    then:
+      - click: "#submit"
+```
+
+---
+
+## File Reference
+
+- **Parser**: `src/libs/parser.js` - `normalizeModelsConfig()`, `normalizeAskAction()`, `normalizeModelAction()`, `normalizeContext()`
+- **Runner**: `src/libs/runner.js` - `loadModels()`, `cleanupModels()`
+- **Interpreter**: `src/libs/interpreter.js` - `handleAsk()`, `handleModel()`, `callModel()`, `buildContextString()`, session histories
+
+---
+
+## Dependencies
+
+- Docker must be running with model support (`docker model list`)
+- Models must be available locally or can be pulled
+
+Check available models:
 ```bash
-docker run --rm \
-  -v "$(pwd)/scripts:/app/scripts" \
-  -v "$(pwd)/output:/app/output" \
-  pptr ./scripts/example.yaml
+docker model list
 ```
 
-Run locally (from repository root):
-
+Load a model:
 ```bash
-node src/cli.js scripts/example.yaml
+docker model run -d <model-name>
 ```
-
-If you install or build the packaged CLI it will be available as `pptr`:
-
-```bash
-pptr scripts/example.yaml
 ```
-
-CLI usage (common flags)
-
-node src/cli.js <script.yaml> [options]
-
-- `-e, --execute <yaml>`: execute YAML directly from the command line
-- `--headless` / `--no-headless`: run headless (default) or with a visible browser
-- `-d, --debug`: enable debug logging
-- `--log <path>`: write logs to a file
-- `-v, --var <VAR=VALUE>`: override variables (repeatable)
-- `-o, --output <path>`: compile the YAML into a small wrapper (bash / PowerShell)
-- `--wrapper <type>`: force wrapper type (`bash|powershell|auto`)
-- `--list-browsers`: list detected browser executables and exit
-
-Examples
-
-```bash
-# Execute inline YAML (local)
-node src/cli.js -e "open: https://example.com"
-
-# Run a script (local)
-node src/cli.js scripts/example.yaml
-
-# Override variables
-node src/cli.js scripts/example.yaml --var BASE_URL=https://google.com
-
-# Run with visible browser
-node src/cli.js scripts/example.yaml --no-headless
-
-# Enable debug logging
-node src/cli.js scripts/example.yaml -d
-
-# Compile a script to a wrapper that calls the 'pptr' binary
-node src/cli.js scripts/example.yaml -o myapp
-
-# After compilation run the wrapper (requires 'pptr' in PATH)
-./myapp -v BASE_URL=https://github.com
-```
-
-Compiling scripts
-
-Use the `-o` flag to create a small wrapper script that embeds the YAML and
-invokes the `pptr` executable with the embedded content. The wrapper forwards
-runtime arguments so variables and flags can still be overridden when invoked.
-
-Example:
-
-```bash
-node src/cli.js scripts/example.yaml -o myapp
-# or, after installing the packaged binary:
-pptr scripts/example.yaml -o myapp
-```
-
-Project layout
-
-```
-/pptr/
-├── src/                 # CLI (src/cli.js) and core library (src/libs)
-├── docs/                # Documentation (this file + actions/examples)
-├── scripts/             # Example YAML scripts
-├── Dockerfile
-└── package.json
-```
-
-Where to read more
-
-- `docs/features/` — feature guides (server, functions, variables, meta)
-- `docs/actions.md` — complete actions reference (click, type, wait, extract, etc.)
-- `docs/examples.md` — practical examples and workflows
-
-License
-
-ISC
