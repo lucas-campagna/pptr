@@ -8,6 +8,7 @@ Complete reference for all actions available in pptr YAML scripts.
 - [Interaction](#interaction)
 - [Waiting](#waiting)
 - [Tabs](#tabs)
+- [AI/Models](#aimodels)
 - [Control Flow](#control-flow)
 - [Data](#data)
 - [Logging](#logging)
@@ -211,6 +212,46 @@ Close the current tab.
 actions:
   - closeTab
 ```
+
+---
+
+## AI/Models
+
+### `ask`
+
+Call an AI model with a prompt. Response stored in `$result`.
+
+```yaml
+# Simple usage
+actions:
+  - ask: "What is 2+2?"
+  - log: "Answer: ${$result}"
+
+# Full options
+actions:
+  - ask:
+      prompt: "Summarize this page"
+      model: mymodel
+      continue: true
+      session: chat1
+  - log: "Summary: ${$result}"
+```
+
+### Direct Model Call
+
+Call a specific named model directly:
+
+```yaml
+models:
+  mymodel:
+    model: smollm2
+
+actions:
+  - mymodel: "Hello"
+  - log: "Response: ${$result}"
+```
+
+See [`ask`](commands/ask.md) and [`models`](features/models.md) for full documentation.
 
 ---
 

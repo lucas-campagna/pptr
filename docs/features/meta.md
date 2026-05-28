@@ -75,6 +75,18 @@ meta:
   browser: chrome  # chrome, edge, firefox, brave, opera, safari
 ```
 
+### `models`
+
+Configure default model behavior. See [Models](models.md) for full documentation.
+
+```yaml
+meta:
+  models:
+    default: mymodel
+    continue: false
+    session: auto
+```
+
 ## Example
 
 ```yaml
