@@ -250,6 +250,15 @@ program
 
     const runner = new Runner(runOptions);
 
+    try {
+      const { exec } = require('child_process');
+      exec('docker model context', (error) => {
+        if (error) {
+          console.error('Warning: failed to refresh docker model context:', error.message);
+        }
+      });
+    } catch (e) {}
+
     let runPromise;
     if (options.dev && !effectiveScriptPath && !yamlContent) {
       runPromise = runner.runDev();
