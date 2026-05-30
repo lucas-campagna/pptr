@@ -448,6 +448,10 @@ class Parser {
 
     const result = {};
     for (const [name, config] of Object.entries(models)) {
+      if (typeof config === 'string') {
+        result[name] = { model: config };
+        continue;
+      }
       if (typeof config !== 'object' || config === null) {
         continue;
       }
