@@ -9,7 +9,6 @@ meta:
   models:
     default: mymodel   # default model for 'ask'
     continue: false    # stateless by default
-    session: auto      # auto cleanup sessions
 
 models:
   mymodel:
@@ -32,12 +31,6 @@ models:
 |--------|------|---------|-------------|
 | `default` | string | first model | Default model for `ask` action |
 | `continue` | boolean | `false` | Stateless mode (reset each call) |
-| `session` | string | `"auto"` | Session handling: `"auto"` or `"manual"` |
-
-### Session Modes
-
-- **`auto`**: Docker handles session/container lifecycle automatically
-- **`manual`**: Session info saved to file for manual cleanup
 
 ## Model Options
 
@@ -140,10 +133,8 @@ models:
 actions:
   - ask:
       prompt: "My name is Alice"
-      session: user1
   - ask:
       prompt: "What is my name?"  # Remembers "Alice" from before
-      session: user1
 ```
 
 ## See Also

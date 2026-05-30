@@ -233,7 +233,6 @@ actions:
       prompt: "Summarize this page"
       model: mymodel
       continue: true
-      session: chat1
   - log: "Summary: ${$result}"
 ```
 

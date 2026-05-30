@@ -23,7 +23,6 @@ actions:
       context:        # additional context
         - system: "You are a helpful assistant"
       continue: true  # maintain conversation history
-      session: chat1 # label for session history
       save: response # store in custom variable
   - log: "Response: ${response}"
 ```
@@ -38,7 +37,6 @@ actions:
 | `max_tokens` | integer | Maximum tokens in response |
 | `context` | list | Additional context messages in OpenAI format |
 | `continue` | boolean | Continue session history (default: meta.models.continue) |
-| `session` | string | Session label for conversation continuity |
 | `save` | string | Variable name to store result (default: `$result`) |
 
 ## Details
@@ -69,7 +67,6 @@ meta:
   models:
     default: mymodel   # default model for 'ask'
     continue: false    # stateless by default
-    session: auto     # auto cleanup sessions
 
 models:
   mymodel:
@@ -163,11 +160,9 @@ models:
 actions:
   - chat:
       prompt: "I need a function add(a, b)"
-      session: coding
       save: step1
   - chat:
       prompt: "Now divide it by 2"
-      session: coding
       save: step2
   - log: "Final result: ${step2}"
 ```
