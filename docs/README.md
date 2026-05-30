@@ -30,7 +30,7 @@ Guide for using AI models with pptr's docker model integration.
 
 ## Overview
 
-pptr can call AI models via `docker model run` command. The response is stored in `$result` variable for use in subsequent actions.
+pptr can call AI models via `docker model run` command. The response is stored in `result` variable for use in subsequent actions.
 
 ## Quick Start
 
@@ -41,7 +41,7 @@ models:
 
 actions:
   - ask: "What is 2+2?"
-  - log: "Answer: ${$result}"
+  - log: "Answer: ${result}"
 ```
 
 ---
@@ -182,12 +182,12 @@ actions:
 
 ## Variable Syntax
 
-Use `${$result}` for the special `$result` variable:
+Use `${result}` for the special `result` variable:
 
 ```yaml
 actions:
   - ask: "What is 2+2?"
-  - log: "Result: ${$result}"
+  - log: "Result: ${result}"
 
   # Or custom variable
   - ask:
@@ -209,7 +209,7 @@ actions:
 | `context` | list | Additional context messages |
 | `continue` | boolean | Use accumulated history |
 | `session` | string | Session label for continuity |
-| `save` | string | Variable name (default: `$result`) |
+| `save` | string | Variable name (default: `result`) |
 
 ---
 
@@ -257,7 +257,7 @@ actions:
   - ask:
       prompt: "Compare to the previous page about ${page_info}"
       session: research
-  - log: "Comparison: ${$result}"
+  - log: "Comparison: ${result}"
 ```
 
 ### Code Generation

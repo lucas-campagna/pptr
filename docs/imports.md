@@ -36,5 +36,5 @@ Notes
 - Import paths are resolved relative to the importing script file.
 - Circular imports are detected and will raise an error.
 - Alias conflicts (same alias mapped to different files) will raise an error.
-- Imported functions should `return:` to set `$result`, or set variables directly inside their body.
+- Imported functions should `return:` to set `result`, or set variables directly inside their body.
 - Expressions inside ${...} will be evaluated against the current runtime variables.

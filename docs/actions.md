@@ -219,13 +219,13 @@ actions:
 
 ### `ask`
 
-Call an AI model with a prompt. Response stored in `$result`.
+Call an AI model with a prompt. Response stored in `result`.
 
 ```yaml
 # Simple usage
 actions:
   - ask: "What is 2+2?"
-  - log: "Answer: ${$result}"
+  - log: "Answer: ${result}"
 
 # Full options
 actions:
@@ -233,7 +233,7 @@ actions:
       prompt: "Summarize this page"
       model: mymodel
       continue: true
-  - log: "Summary: ${$result}"
+  - log: "Summary: ${result}"
 ```
 
 ### Direct Model Call
@@ -247,7 +247,7 @@ models:
 
 actions:
   - mymodel: "Hello"
-  - log: "Response: ${$result}"
+  - log: "Response: ${result}"
 ```
 
 See [`ask`](commands/ask.md) and [`models`](features/models.md) for full documentation.
@@ -518,7 +518,7 @@ actions:
 Prompt user for interactive input.
 
 ```yaml
-# Simple form - result stored in $result
+# Simple form - result stored in result
 actions:
   - input: "Enter your name: "
   - log: "Hello ${result}!"
@@ -537,7 +537,7 @@ actions:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `prompt` | string | `"Enter value: "` | Prompt text shown to user |
-| `var` | string | `$result` | Variable name to store input |
+| `var` | string | `result` | Variable name to store input |
 | `default` | any | `null` | Default value if empty input |
 | `hide` | boolean | `false` | Hide input (for passwords) |
 
@@ -594,7 +594,7 @@ functions:
 
 ### `return`
 
-Return a value from a function. Sets `$result` variable.
+Return a value from a function. Sets `result` variable.
 
 ```yaml
 functions:
@@ -627,7 +627,7 @@ actions:
 
 - Parameters with default values
 - Scoped variables (params don't leak outside function)
-- `$result` captures return value
+- `result` captures return value
 - Functions can call other functions
 
 ---

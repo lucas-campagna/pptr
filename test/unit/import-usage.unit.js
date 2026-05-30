@@ -53,6 +53,6 @@ describe('Imported actions usage', () => {
     const it = makeInterpreterWithImports({ scr1: imported });
     const actions = [ { 'scr1.functions.sum': { x: 2, y: 3 } } ];
     await it.executeActions({}, actions);
-    assert.strictEqual(it.vars.get('$result'), '5');
+    assert.strictEqual(it.vars.get('result'), '5');
   });
 });

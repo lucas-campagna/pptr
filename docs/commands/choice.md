@@ -25,7 +25,7 @@ actions:
 |--------|------|---------|-------------|
 | `prompt` | string | `"Select an option:"` | Prompt text shown to user |
 | `options` | array | `[]` | List of options to choose from |
-| `var` | string | `$result` | Variable name to store selection |
+| `var` | string | `result` | Variable name to store selection |
 
 ## Details
 

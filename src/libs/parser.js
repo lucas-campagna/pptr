@@ -289,7 +289,7 @@ class Parser {
             type: 'choice',
             prompt: value.prompt || 'Select an option:',
             options: value.options || [],
-            var: value.var || '$result',
+            var: value.var || 'result',
           };
 
         case 'ask':
@@ -325,7 +325,7 @@ class Parser {
         max_tokens: value.max_tokens,
         context: this.normalizeContext(value.context),
         continue: value.continue,
-        save: value.save || '$result',
+        save: value.save || 'result',
       };
     }
     return { type: 'ask', prompt: String(value) };
@@ -345,7 +345,7 @@ class Parser {
         max_tokens: value.max_tokens,
         context: this.normalizeContext(value.context),
         continue: value.continue,
-        save: value.save || '$result',
+        save: value.save || 'result',
       };
     }
     return { type: 'model', name: modelName, prompt: String(value) };

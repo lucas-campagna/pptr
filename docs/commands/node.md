@@ -30,7 +30,7 @@ actions:
 
 The `node` action executes JavaScript in the Node.js environment (server-side). It has access to Node.js APIs like `fs`, `path`, `crypto`, etc., as well as all pptr variables.
 
-The result of the last expression is stored in `result` and `$result`.
+The result of the last expression is stored in `result`.
 
 ## Examples
 

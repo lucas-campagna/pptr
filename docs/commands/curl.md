@@ -34,7 +34,7 @@ actions:
 | `body` | string | | Request body |
 | `output` | string | | Save response to file |
 | `save` | string | result only | What to save: `stdout`, `stderr`, `all` |
-| `var` | string | `$result` | Variable name for response |
+| `var` | string | `result` | Variable name for response |
 | `cookie` | boolean | `false` | Enable cookie jar for session persistence |
 | `cookieJar` | string | auto | Path to cookie jar file (implies cookie: true) |
 
@@ -42,7 +42,7 @@ actions:
 
 The `curl` action executes HTTP requests using the system curl command. Supports all standard curl options including custom headers, request body, and different HTTP methods.
 
-By default, the response body is stored in `$result`.
+By default, the response body is stored in `result`.
 
 ## Examples
 

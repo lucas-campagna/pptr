@@ -5,7 +5,7 @@ description: Return a value from a function.
 
 # `return` Command
 
-Return a value from a function. Sets the `$result` variable.
+Return a value from a function. Sets the `result` variable.
 
 ## YAML Syntax
 

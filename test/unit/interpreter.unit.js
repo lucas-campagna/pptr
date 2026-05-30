@@ -133,7 +133,7 @@ describe('Interpreter run action (unit)', () => {
     return new Interpreter(fakeBrowser, { vars, logger });
   }
 
-  it('executes simple JS expression and saves to $result', async () => {
+  it('executes simple JS expression and saves to result', async () => {
     const vars = new VariableEngine({}, []);
     const page = {
       evaluate: async (fn) => fn({}, '1 + 1'),
@@ -142,7 +142,7 @@ describe('Interpreter run action (unit)', () => {
     const actions = [{ type: 'run', code: '1 + 1' }];
 
     await it.executeActions(page, actions);
-    assert.strictEqual(vars.get('$result'), 2);
+    assert.strictEqual(vars.get('result'), 2);
   });
 
   it('passes variables to JS context', async () => {
@@ -156,20 +156,20 @@ describe('Interpreter run action (unit)', () => {
     const actions = [{ type: 'run', code: 'x + y' }];
 
     await it.executeActions(page, actions);
-    assert.strictEqual(vars.get('$result'), 7);
+    assert.strictEqual(vars.get('result'), 7);
   });
 
-  it('uses previous $result in run code', async () => {
+  it('uses previous result in run code', async () => {
     const vars = new VariableEngine({}, []);
-    vars.set('$result', 10);
+    vars.set('result', 10);
     const page = {
       evaluate: async (fn, varsArg, code) => fn(varsArg, code),
     };
     const it = makeInterpreter(vars, page);
-    const actions = [{ type: 'run', code: '$result * 2' }];
+    const actions = [{ type: 'run', code: 'result * 2' }];
 
     await it.executeActions(page, actions);
-    assert.strictEqual(vars.get('$result'), 20);
+    assert.strictEqual(vars.get('result'), 20);
   });
 
   it('executes multi-line JS and returns last expression', async () => {
@@ -181,7 +181,7 @@ describe('Interpreter run action (unit)', () => {
     const actions = [{ type: 'run', code: 'const a = 5\nconst b = 10\na + b' }];
 
     await it.executeActions(page, actions);
-    assert.strictEqual(vars.get('$result'), 15);
+    assert.strictEqual(vars.get('result'), 15);
   });
 
   it('handles async JS (Promise.resolve)', async () => {
@@ -193,6 +193,6 @@ describe('Interpreter run action (unit)', () => {
     const actions = [{ type: 'run', code: 'Promise.resolve(42)' }];
 
     await it.executeActions(page, actions);
-    assert.strictEqual(vars.get('$result'), 42);
+    assert.strictEqual(vars.get('result'), 42);
   });
 });

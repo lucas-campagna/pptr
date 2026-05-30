@@ -1,6 +1,6 @@
 # `ask`
 
-Call an AI model with a prompt. The response is stored in `$result` (or a custom variable).
+Call an AI model with a prompt. The response is stored in `result` (or a custom variable).
 
 ## Syntax
 
@@ -8,7 +8,7 @@ Call an AI model with a prompt. The response is stored in `$result` (or a custom
 # Simple usage (uses default model)
 actions:
   - ask: "What is 2+2?"
-  - log: "Answer: ${$result}"
+  - log: "Answer: ${result}"
 ```
 
 Or with full options:
@@ -37,7 +37,7 @@ actions:
 | `max_tokens` | integer | Maximum tokens in response |
 | `context` | list | Additional context messages in OpenAI format |
 | `continue` | boolean | Continue session history (default: meta.models.continue) |
-| `save` | string | Variable name to store result (default: `$result`) |
+| `save` | string | Variable name to store result (default: `result`) |
 
 ## Details
 
@@ -55,7 +55,7 @@ To call a specific named model directly:
 ```yaml
 actions:
   - mymodel: "Hello"  # calls the 'mymodel' configuration
-  - log: "Response: ${$result}"
+  - log: "Response: ${result}"
 ```
 
 ## Models Configuration
@@ -128,7 +128,7 @@ models:
 
 actions:
   - ask: "What is 2+2?"
-  - log: "Answer: ${$result}"
+  - log: "Answer: ${result}"
 ```
 
 ### With Custom Model
@@ -141,7 +141,7 @@ models:
 
 actions:
   - coder: "Write a Python function to fibonacci"
-  - log: "Code: ${$result}"
+  - log: "Code: ${result}"
 ```
 
 ### Stateful Conversation

@@ -81,5 +81,5 @@ actions:
 
 - Parameters with default values
 - Scoped variables (params don't leak outside function)
-- `$result` captures return value
+- `result` captures return value
 - Functions can call other functions

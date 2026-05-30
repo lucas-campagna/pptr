@@ -490,7 +490,7 @@ class Interpreter {
         break;
 
       case 'return':
-        this.vars.set('$result', typeof action.value === 'string' ? this.vars.interpolate(action.value) : action.value);
+        this.vars.set('result', typeof action.value === 'string' ? this.vars.interpolate(action.value) : action.value);
         throw new Error('RETURN');
 
       case 'input':
@@ -864,7 +864,7 @@ class Interpreter {
       }
     }, allVars, code);
 
-    this.vars.set('$result', result);
+    this.vars.set('result', result);
     this.vars.set('result', result);
   }
 
@@ -889,7 +889,7 @@ class Interpreter {
       }
     }, allVars, code);
 
-    this.vars.set('$result', result);
+    this.vars.set('result', result);
     this.vars.set('result', result);
   }
 
@@ -900,7 +900,7 @@ class Interpreter {
     const fn = new Function(...Object.keys(allVars), code);
     const result = fn(...Object.values(allVars));
 
-    this.vars.set('$result', result);
+    this.vars.set('result', result);
     this.vars.set('result', result);
   }
 
@@ -926,7 +926,7 @@ class Interpreter {
       this.vars.set(action.var || 'stderr', result.stderr);
     }
     if (!action.save) {
-      this.vars.set('$result', result.stdout.trim());
+      this.vars.set('result', result.stdout.trim());
     }
   }
 
@@ -978,7 +978,7 @@ class Interpreter {
       this.vars.set(action.var || 'stderr', result.stderr);
     }
     if (!action.save && !action.output) {
-      this.vars.set('$result', result.stdout.trim());
+      this.vars.set('result', result.stdout.trim());
     }
   }
 
@@ -1007,7 +1007,7 @@ class Interpreter {
 
     const prompt = this.vars.interpolate(action.prompt || 'Select an option:');
     const options = action.options || [];
-    const varName = action.var || '$result';
+    const varName = action.var || 'result';
 
     process.stdout.write(prompt + '\n');
     for (let i = 0; i < options.length; i++) {
@@ -1155,7 +1155,7 @@ class Interpreter {
       await this.executeActions(page, closure.actions);
     } catch (e) {
       if (e.message === 'RETURN') {
-        this.vars.set('$result', this.vars.get('$result'));
+        this.vars.set('result', this.vars.get('result'));
       } else {
         throw e;
       }
@@ -1275,7 +1275,7 @@ class Interpreter {
     if (action.var) {
       this.vars.set(action.var, value);
     } else {
-      this.vars.set('$result', value);
+      this.vars.set('result', value);
     }
   }
 
@@ -1396,10 +1396,10 @@ class Interpreter {
 
     try {
       await this.executeActions(page, route.actions);
-      result = this.vars.get('$result');
+      result = this.vars.get('result');
     } catch (e) {
       if (e.message === 'BREAK' || e.message === 'CONTINUE' || e.message === 'RETURN') {
-        result = this.vars.get('$result');
+        result = this.vars.get('result');
       } else {
         throw e;
       }
@@ -1518,7 +1518,7 @@ class Interpreter {
     const config = this.resolveModelConfig(modelName);
 
     const contextString = this.buildContextString(modelName, prompt, action, action.continue);
-    const save = action.save || '$result';
+    const save = action.save || 'result';
 
     const result = await this.callModel(config, contextString);
     this.vars.set(save, result);
@@ -1530,7 +1530,7 @@ class Interpreter {
     const config = this.resolveModelConfig(modelName);
 
     const contextString = this.buildContextString(modelName, prompt, action, action.continue);
-    const save = action.save || '$result';
+    const save = action.save || 'result';
 
     const result = await this.callModel(config, contextString);
     this.vars.set(save, result);

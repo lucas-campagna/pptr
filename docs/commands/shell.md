@@ -27,7 +27,7 @@ actions:
 | `command` | string | | Shell command to execute |
 | `shell` | string | auto-detect | Shell to use (bash, sh, powershell) |
 | `save` | string | result only | What to save: `stdout`, `stderr`, `all` |
-| `var` | string | `$result` | Variable name for output |
+| `var` | string | `result` | Variable name for output |
 
 ## Details
 
@@ -35,7 +35,7 @@ The `shell` action executes commands in the system shell. The shell is auto-dete
 - Linux/macOS: `bash` or `sh`
 - Windows: `powershell`
 
-The command output (stdout) is stored in `$result` by default. Use `save` to capture both stdout and stderr separately.
+The command output (stdout) is stored in `result` by default. Use `save` to capture both stdout and stderr separately.
 
 ## Examples
 
