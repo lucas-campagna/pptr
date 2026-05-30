@@ -27,6 +27,7 @@ class Interpreter {
     this.models = options.models || {};
     this.meta = options.meta || {};
     this.sessionHistories = {};
+    this.allowBrowser = this.meta.browser !== false;
   }
 
   async delay(ms) {
@@ -39,6 +40,12 @@ class Interpreter {
 
   toXPathSelector(selector) {
     return `xpath/${selector}`;
+  }
+
+  requireBrowser() {
+    if (!this.allowBrowser) {
+      throw new Error("Browser is disabled (meta.browser: false). This action requires a browser.");
+    }
   }
 
   async waitForElement(page, selector, options = {}) {
@@ -360,33 +367,40 @@ class Interpreter {
         break;
 
       case 'back':
+        this.requireBrowser();
         this.logger.debug('Navigating back');
         await page.goBack();
         break;
 
       case 'forward':
+        this.requireBrowser();
         this.logger.debug('Navigating forward');
         await page.goForward();
         break;
 
       case 'reload':
+        this.requireBrowser();
         this.logger.debug('Reloading page');
         await page.reload();
         break;
 
       case 'hover':
+        this.requireBrowser();
         await this.handleHover(page, action);
         break;
 
       case 'select':
+        this.requireBrowser();
         await this.handleSelect(page, action);
         break;
 
       case 'scroll':
+        this.requireBrowser();
         await this.handleScroll(page, action);
         break;
 
       case 'press':
+        this.requireBrowser();
         this.logger.debug(`Pressing ${action.key}`);
         await page.keyboard.press(action.key);
         break;
@@ -505,6 +519,7 @@ class Interpreter {
   }
 
   async handleClick(page, action) {
+    this.requireBrowser();
     const selector = this.vars.interpolate(action.selector);
     this.logger.debug(`Clicking ${selector}`);
     await this.waitForElement(page, selector, { visible: true });
@@ -520,6 +535,7 @@ class Interpreter {
   }
 
   async handleType(page, action) {
+    this.requireBrowser();
     const selector = this.vars.interpolate(action.selector);
     const text = this.vars.interpolate(action.text);
     this.logger.debug(`Typing into ${selector}`);
@@ -528,6 +544,7 @@ class Interpreter {
   }
 
   async handleFill(page, action) {
+    this.requireBrowser();
     const selector = this.vars.interpolate(action.selector);
     const text = this.vars.interpolate(action.text);
     this.logger.debug(`Filling ${selector}`);
@@ -549,6 +566,9 @@ class Interpreter {
   }
 
   async handleWait(page, action) {
+    if (action.selector || action.navigation || action.condition) {
+      this.requireBrowser();
+    }
     if (action.selector) {
       const selector = this.vars.interpolate(action.selector);
       this.logger.debug(`Waiting for ${selector}`);
@@ -576,6 +596,7 @@ class Interpreter {
   }
 
   async handleScreenshot(page, action) {
+    this.requireBrowser();
     const path = this.vars.interpolate(action.path);
     this.logger.debug(`Saving screenshot to ${path}`);
     
@@ -595,12 +616,14 @@ class Interpreter {
   }
 
   async handleOpen(page, action) {
+    this.requireBrowser();
     const url = this.vars.interpolate(action.url);
     this.logger.debug(`Navigating to ${url}`);
     await page.goto(url, { waitUntil: 'domcontentloaded' });
   }
 
   async handleHover(page, action) {
+    this.requireBrowser();
     const selector = this.vars.interpolate(action.selector);
     this.logger.debug(`Hovering over ${selector}`);
     await this.waitForElement(page, selector, { visible: true });
@@ -608,6 +631,7 @@ class Interpreter {
   }
 
   async handleSelect(page, action) {
+    this.requireBrowser();
     const selector = this.vars.interpolate(action.selector);
     const value = this.vars.interpolate(action.value);
     this.logger.debug(`Selecting ${value} in ${selector}`);
@@ -616,6 +640,7 @@ class Interpreter {
   }
 
   async handleScroll(page, action) {
+    this.requireBrowser();
     this.logger.debug('Scrolling');
     if (action.selector) {
       const selector = this.vars.interpolate(action.selector);
@@ -629,6 +654,7 @@ class Interpreter {
   }
 
   async handleNewTab(action) {
+    this.requireBrowser();
     const url = this.vars.interpolate(action.url);
     this.logger.debug(`Opening new tab: ${url}`);
     const page = await this.browser.newPage();
@@ -642,6 +668,7 @@ class Interpreter {
   }
 
   async handleSwitchTab(action) {
+    this.requireBrowser();
     const index = action.index;
     this.logger.debug(`Switching to tab ${index}`);
     if (index >= 0 && index < this.pages.length) {
@@ -653,6 +680,7 @@ class Interpreter {
   }
 
   async handleCloseTab() {
+    this.requireBrowser();
     this.logger.debug('Closing current tab');
     if (this.pages.length > 1) {
       await this.pages[this.currentIndex].close();
@@ -780,6 +808,7 @@ class Interpreter {
   }
 
   async handleExtract(page, action) {
+    this.requireBrowser();
     const selector = this.vars.interpolate(action.selector);
 
     if (action.fields) {
@@ -838,6 +867,7 @@ class Interpreter {
   }
 
   async handleJs(page, action) {
+    this.requireBrowser();
     const code = this.vars.interpolate(action.code);
     const allVars = this.vars.getAll();
 
@@ -999,6 +1029,7 @@ class Interpreter {
   }
 
   async handlePdf(page, action) {
+    this.requireBrowser();
     const path = this.vars.interpolate(action.path);
     await page.pdf({ path, format: 'A4' });
     this.logger.debug(`PDF saved: ${path}`);

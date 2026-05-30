@@ -273,6 +273,8 @@ class Runner {
     const logger = new Logger(logPath, this.options.debug);
     logger.debug("Initializing Puppeteer");
 
+    const useBrowser = meta.browser !== false;
+
     if (meta.models && Object.keys(meta.models).length > 0) {
       this.options.modelsSession = meta.models.session || this.options.modelsSession;
     }
@@ -292,130 +294,133 @@ class Runner {
       }
     }
 
-    const browserArgs = [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--no-zygote",
-      "--disable-gpu",
-      "--ignore-certificate-errors",
-    ];
-
-    const useHeadless = this.options.headless !== false;
-    if (useHeadless) {
-      browserArgs.push("--headless=new");
-    }
-
-    if (this.options.loadExtension && !useHeadless) {
-      const extPath = path.resolve(this.options.loadExtension);
-      browserArgs.push(`--load-extension=${extPath}`);
-      logger.debug(`Loading browser extension from: ${extPath}`);
-    }
-
-    const { HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy, ...restEnv } =
-      process.env;
-
-    const launchOptions = {
-      headless: useHeadless,
-      slowMo: this.options.slowMo ?? meta.slowMo ?? 0,
-      args: browserArgs,
-      env: { ...restEnv },
-      dumpio: !!this.options.debug,
-    };
-
-    try {
-      const sessionDir = this.resolveSessionDir(this.options.session);
-      if (sessionDir) {
-        if (this.options.clearSession) {
-          try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) {}
-        }
-        try { fs.mkdirSync(sessionDir, { recursive: true }); } catch (e) {}
-        launchOptions.userDataDir = sessionDir;
-        logger.debug(`Using session directory: ${sessionDir}`);
-      }
-    } catch (e) {
-      logger.debug(`Failed to setup session dir: ${e && e.message ? e.message : e}`);
-    }
-
-    let chromeDir;
+    let browser = null;
     let usedSystemBrowser = false;
-    let browser;
 
-    try {
-      const BrowserFinder = require('./browser-finder');
-      const systemBrowser = await BrowserFinder.findBrowser({
-        platform: process.platform,
-      });
-      if (systemBrowser) {
-        logger.debug(`Using system browser executable: ${systemBrowser}`);
-        launchOptions.executablePath = systemBrowser;
-        usedSystemBrowser = true;
+    if (useBrowser) {
+      const browserArgs = [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--no-zygote",
+        "--disable-gpu",
+        "--ignore-certificate-errors",
+      ];
+
+      const useHeadless = this.options.headless !== false;
+      if (useHeadless) {
+        browserArgs.push("--headless=new");
       }
-    } catch (err) {
-      const BrowserFinder = require('./browser-finder');
-      if (err instanceof BrowserFinder.NotFoundError) {
-        logger.debug("No system browser found; will use bundled dependencies");
-      } else if (err instanceof BrowserFinder.InvalidEnvError) {
-        logger.debug(`Invalid BROWSER_PATH provided: ${err.value}`);
-        throw err;
-      } else if (err instanceof BrowserFinder.MultipleFoundError) {
-        const found = err.found || [];
-        const autoBrowser = process.env.AUTO_BROWSER;
-        const shouldAutoSelect = autoBrowser !== '0' && autoBrowser !== 'false';
-        if (found.length > 0 && shouldAutoSelect) {
-          logger.debug(`Multiple browser executables found: ${found.join(', ')}`);
-          console.warn('Multiple browser executables found:');
-          for (const p of found) console.warn(`  - ${p}`);
-          console.warn(`Using the first one: ${found[0]} (set BROWSER_PATH to choose a different one, or AUTO_BROWSER=0 to disable)`);
-          launchOptions.executablePath = found[0];
+
+      if (this.options.loadExtension && !useHeadless) {
+        const extPath = path.resolve(this.options.loadExtension);
+        browserArgs.push(`--load-extension=${extPath}`);
+        logger.debug(`Loading browser extension from: ${extPath}`);
+      }
+
+      const { HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy, ...restEnv } =
+        process.env;
+
+      const launchOptions = {
+        headless: useHeadless,
+        slowMo: this.options.slowMo ?? meta.slowMo ?? 0,
+        args: browserArgs,
+        env: { ...restEnv },
+        dumpio: !!this.options.debug,
+      };
+
+      try {
+        const sessionDir = this.resolveSessionDir(this.options.session);
+        if (sessionDir) {
+          if (this.options.clearSession) {
+            try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) {}
+          }
+          try { fs.mkdirSync(sessionDir, { recursive: true }); } catch (e) {}
+          launchOptions.userDataDir = sessionDir;
+          logger.debug(`Using session directory: ${sessionDir}`);
+        }
+      } catch (e) {
+        logger.debug(`Failed to setup session dir: ${e && e.message ? e.message : e}`);
+      }
+
+      let chromeDir;
+
+      try {
+        const BrowserFinder = require('./browser-finder');
+        const systemBrowser = await BrowserFinder.findBrowser({
+          platform: process.platform,
+        });
+        if (systemBrowser) {
+          logger.debug(`Using system browser executable: ${systemBrowser}`);
+          launchOptions.executablePath = systemBrowser;
           usedSystemBrowser = true;
-        } else if (found.length > 0) {
+        }
+      } catch (err) {
+        const BrowserFinder = require('./browser-finder');
+        if (err instanceof BrowserFinder.NotFoundError) {
+          logger.debug("No system browser found; will use bundled dependencies");
+        } else if (err instanceof BrowserFinder.InvalidEnvError) {
+          logger.debug(`Invalid BROWSER_PATH provided: ${err.value}`);
           throw err;
+        } else if (err instanceof BrowserFinder.MultipleFoundError) {
+          const found = err.found || [];
+          const autoBrowser = process.env.AUTO_BROWSER;
+          const shouldAutoSelect = autoBrowser !== '0' && autoBrowser !== 'false';
+          if (found.length > 0 && shouldAutoSelect) {
+            logger.debug(`Multiple browser executables found: ${found.join(', ')}`);
+            console.warn('Multiple browser executables found:');
+            for (const p of found) console.warn(`  - ${p}`);
+            console.warn(`Using the first one: ${found[0]} (set BROWSER_PATH to choose a different one, or AUTO_BROWSER=0 to disable)`);
+            launchOptions.executablePath = found[0];
+            usedSystemBrowser = true;
+          } else if (found.length > 0) {
+            throw err;
+          } else {
+            throw err;
+          }
         } else {
           throw err;
         }
-      } else {
-        throw err;
       }
-    }
 
-    if (!launchOptions.executablePath) {
-      chromeDir = await this.ensureDependencies(logger);
-      launchOptions.executablePath = path.join(chromeDir, "chrome");
-      launchOptions.env = {
-        ...restEnv,
-        LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
-      };
-      usedSystemBrowser = false;
-    }
-
-    try {
-      browser = await puppeteer.launch(launchOptions);
-      const currentBundledPath = chromeDir
-        ? path.join(chromeDir, "chrome")
-        : path.join(this.getDepsDir(), "chrome");
-      usedSystemBrowser = launchOptions.executablePath !== currentBundledPath;
-    } catch (err) {
-      if (launchOptions.executablePath && (!chromeDir || launchOptions.executablePath !== path.join(chromeDir, "chrome"))) {
-        logger.debug(
-          `System browser launch failed (${launchOptions.executablePath}), falling back to bundled deps: ${err.message}`,
-        );
-        chromeDir = chromeDir || (await this.ensureDependencies(logger));
+      if (!launchOptions.executablePath) {
+        chromeDir = await this.ensureDependencies(logger);
         launchOptions.executablePath = path.join(chromeDir, "chrome");
         launchOptions.env = {
           ...restEnv,
           LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
         };
-        browser = await puppeteer.launch(launchOptions);
         usedSystemBrowser = false;
-      } else {
-        throw err;
       }
-    }
 
-    try {
-      browser.on("disconnected", () => logger.debug("Browser disconnected"));
-    } catch (e) {}
+      try {
+        browser = await puppeteer.launch(launchOptions);
+        const currentBundledPath = chromeDir
+          ? path.join(chromeDir, "chrome")
+          : path.join(this.getDepsDir(), "chrome");
+        usedSystemBrowser = launchOptions.executablePath !== currentBundledPath;
+      } catch (err) {
+        if (launchOptions.executablePath && (!chromeDir || launchOptions.executablePath !== path.join(chromeDir, "chrome"))) {
+          logger.debug(
+            `System browser launch failed (${launchOptions.executablePath}), falling back to bundled deps: ${err.message}`,
+          );
+          chromeDir = chromeDir || (await this.ensureDependencies(logger));
+          launchOptions.executablePath = path.join(chromeDir, "chrome");
+          launchOptions.env = {
+            ...restEnv,
+            LD_LIBRARY_PATH: path.join(chromeDir, "lib"),
+          };
+          browser = await puppeteer.launch(launchOptions);
+          usedSystemBrowser = false;
+        } else {
+          throw err;
+        }
+      }
+
+      try {
+        browser.on("disconnected", () => logger.debug("Browser disconnected"));
+      } catch (e) {}
+    }
 
     let result;
     try {

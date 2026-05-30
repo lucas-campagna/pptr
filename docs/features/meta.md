@@ -68,11 +68,11 @@ meta:
 
 ### `browser`
 
-Specify which browser to use for this script.
+Enable or disable browser initialization. When set to `false`, no browser is launched and any action requiring a browser will raise an error.
 
 ```yaml
 meta:
-  browser: chrome  # chrome, edge, firefox, brave, opera, safari
+  browser: false  # disables browser (default: true)
 ```
 
 ### `models`
