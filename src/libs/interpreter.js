@@ -197,16 +197,18 @@ class Interpreter {
 
     this.functions = content.functions || {};
 
-    let page;
-    if (content.open) {
-      const url = this.vars.interpolate(content.open);
-      this.logger.debug(`Navigating to ${url}`);
-      page = await this.browser.newPage();
-      await page.goto(url, { waitUntil: 'domcontentloaded' });
-      this.pages.push(page);
-    } else {
-      page = await this.browser.newPage();
-      this.pages.push(page);
+    let page = null;
+    if (this.allowBrowser) {
+      if (content.open) {
+        const url = this.vars.interpolate(content.open);
+        this.logger.debug(`Navigating to ${url}`);
+        page = await this.browser.newPage();
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        this.pages.push(page);
+      } else {
+        page = await this.browser.newPage();
+        this.pages.push(page);
+      }
     }
 
     if (content.actions && content.actions.length > 0) {
