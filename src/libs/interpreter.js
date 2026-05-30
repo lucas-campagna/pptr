@@ -1457,12 +1457,6 @@ class Interpreter {
     const config = this.models[modelName] || {};
     const defaultContinue = this.meta.models?.continue || false;
     const shouldContinue = actionContext !== undefined ? actionContext : defaultContinue;
-    const sessionKey = actionContext?.session || null;
-
-    let history = [];
-    if (sessionKey && this.sessionHistories[sessionKey]) {
-      history = this.sessionHistories[sessionKey];
-    }
 
     let contextMsgs = [...(config.context || [])];
 
@@ -1481,12 +1475,6 @@ class Interpreter {
       }
     }
     promptWithContext += `User: ${prompt}`;
-
-    if (shouldContinue && sessionKey) {
-      const userMsg = { role: 'user', content: prompt };
-      history.push(userMsg);
-      this.sessionHistories[sessionKey] = history;
-    }
 
     return promptWithContext;
   }

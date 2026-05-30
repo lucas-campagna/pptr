@@ -325,7 +325,6 @@ class Parser {
         max_tokens: value.max_tokens,
         context: this.normalizeContext(value.context),
         continue: value.continue,
-        session: value.session || null,
         save: value.save || '$result',
       };
     }
@@ -346,7 +345,6 @@ class Parser {
         max_tokens: value.max_tokens,
         context: this.normalizeContext(value.context),
         continue: value.continue,
-        session: value.session || null,
         save: value.save || '$result',
       };
     }
