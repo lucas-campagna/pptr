@@ -211,7 +211,8 @@ class Parser {
           return this.normalizeRepeat(value, modelsConfig);
 
         case 'parallel':
-          return { type: 'parallel', branches: value.map(b => ({ actions: this.normalizeActions(b.actions || [], modelsConfig) })) };
+          const parallelBranches = value.branches || [];
+          return { type: 'parallel', branches: parallelBranches.map(b => ({ actions: this.normalizeActions(b.actions || [], modelsConfig) })) };
 
         case 'retry':
           return this.normalizeRetry(value, modelsConfig);
