@@ -1497,6 +1497,10 @@ class Interpreter {
       contextMsgs = contextMsgs.concat(actionContext.context);
     }
 
+    if (shouldContinue && this.sessionHistories[modelName]) {
+      contextMsgs = contextMsgs.concat(this.sessionHistories[modelName]);
+    }
+
     let promptWithContext = '';
     for (const msg of contextMsgs) {
       if (msg.role === 'system') {
@@ -1522,6 +1526,16 @@ class Interpreter {
 
     const result = await this.callModel(config, contextString);
     this.vars.set(save, result);
+
+    const defaultContinue = this.meta.models?.continue || false;
+    const shouldContinue = action.continue !== undefined ? action.continue : defaultContinue;
+    if (shouldContinue && result) {
+      if (!this.sessionHistories[modelName]) {
+        this.sessionHistories[modelName] = [];
+      }
+      this.sessionHistories[modelName].push({ role: 'user', content: prompt });
+      this.sessionHistories[modelName].push({ role: 'assistant', content: result });
+    }
   }
 
   async handleModel(action) {
@@ -1534,6 +1548,16 @@ class Interpreter {
 
     const result = await this.callModel(config, contextString);
     this.vars.set(save, result);
+
+    const defaultContinue = this.meta.models?.continue || false;
+    const shouldContinue = action.continue !== undefined ? action.continue : defaultContinue;
+    if (shouldContinue && result) {
+      if (!this.sessionHistories[modelName]) {
+        this.sessionHistories[modelName] = [];
+      }
+      this.sessionHistories[modelName].push({ role: 'user', content: prompt });
+      this.sessionHistories[modelName].push({ role: 'assistant', content: result });
+    }
   }
 
   async callModel(config, prompt) {
