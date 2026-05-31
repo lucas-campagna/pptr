@@ -458,6 +458,9 @@ class Parser {
       }
       result[name] = {
         model: config.model || name,
+        provider: config.provider || 'docker',
+        api_key: config.api_key,
+        base_url: config.base_url,
         temperature: config.temperature,
         max_tokens: config.max_tokens,
         top_p: config.top_p,

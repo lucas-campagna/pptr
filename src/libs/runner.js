@@ -12,6 +12,7 @@ const Logger = require('./logger');
 const Parser = require('./parser');
 const VariableEngine = require('./variables');
 const Interpreter = require('./interpreter');
+const { isDockerProvider } = require('./providers');
 
 class Runner {
   constructor(options = {}) {
@@ -67,6 +68,10 @@ class Runner {
     }
 
     for (const [name, config] of Object.entries(models)) {
+      if (!isDockerProvider(config)) {
+        logger.debug(`Skipping model ${name} (${config.provider} provider - no container needed)`);
+        continue;
+      }
       try {
         logger.debug(`Loading model ${name} (${config.model})...`);
         await this.execHide(`docker model run -d ${config.model}`);

@@ -2,6 +2,7 @@
 // module is used as part of the pptr-core package.
 const Logger = require('./logger');
 const VariableEngine = require('./variables');
+const { createProvider } = require('./providers');
 
 class Interpreter {
   constructor(browser, options = {}) {
@@ -1571,47 +1572,18 @@ class Interpreter {
     const lockPromise = new Promise(resolve => { releaseLock = resolve; });
     this.modelLocks[modelName] = lockPromise;
 
-    return new Promise((resolve, reject) => {
-      const escapedPrompt = prompt.replace(/"/g, '\\"');
-      const cmd = `docker model run ${config.model} "${escapedPrompt}"`;
-      this.logger.debug(`Executing: ${cmd}`);
-
-      const { spawn } = require('child_process');
-      const child = spawn('bash', ['-c', cmd], { stdio: ['ignore', 'pipe', 'pipe'] });
-
-      let stdout = '';
-      let stderr = '';
-
-      child.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.on('close', (code) => {
-        releaseLock();
-        delete this.modelLocks[modelName];
-        if (code !== 0) {
-          this.logger.warn(`Model command exited with code ${code}: ${stderr}`);
-        }
-        let result = stdout.trim();
-        const userMatch = result.match(/^(.*?)(?=\nUser:|$)/s);
-        if (userMatch) {
-          result = userMatch[1].trim();
-        }
-        const lastAssistant = result.split(/\nAssistant:/).pop().trim();
-        resolve(lastAssistant || result);
-      });
-
-      child.on('error', (err) => {
-        releaseLock();
-        delete this.modelLocks[modelName];
-        this.logger.warn(`Model command failed: ${err.message}`);
-        resolve('');
-      });
-    });
+    try {
+      const provider = createProvider(config, this.logger);
+      const result = await provider.call(prompt, prompt);
+      releaseLock();
+      delete this.modelLocks[modelName];
+      return result;
+    } catch (err) {
+      releaseLock();
+      delete this.modelLocks[modelName];
+      this.logger.warn(`Model call failed: ${err.message}`);
+      return '';
+    }
   }
 
   async setupShutdown() {
