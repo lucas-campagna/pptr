@@ -7,21 +7,33 @@ actions:
   - parallel:
       branches:
         - actions:
-          - model_a: My name is Bob
+          - gemini: My name is Geminius
           - log: "A1: ${result}"
-          - model_a: What is my name?
+          - gemini: What is my name?
           - log: "A2: ${result}"
-          - model_a: What is my name?
+          - gemini: What is my name?
           - log: "A3: ${result}"
         - actions:
-          - model_b: My name is Alice
+          - model_a: My name is Bob
           - log: "B1: ${result}"
-          - model_b: What is my name?
+          - model_a: What is my name?
           - log: "B2: ${result}"
-          - model_b: What is my name?
+          - model_a: What is my name?
           - log: "B3: ${result}"
+        - actions:
+          - model_b: My name is Alice
+          - log: "C1: ${result}"
+          - model_b: What is my name?
+          - log: "C2: ${result}"
+          - model_b: What is my name?
+          - log: "C3: ${result}"
 
 models:
+  gemini:
+    provider: gemini
+    model: gemini-2.5-flash
+    api_key: AIzaSyCPfHJue8anSgAnsBYTtvpQ6I19XVK8hTo
+    temperature: 0
   model_a:
     model: smollm2
     temperature: 0
