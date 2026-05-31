@@ -28,6 +28,7 @@ class Interpreter {
     this.meta = options.meta || {};
     this.sessionHistories = {};
     this.allowBrowser = this.meta.browser !== false;
+    this.modelLocks = {};
   }
 
   async delay(ms) {
@@ -1561,6 +1562,15 @@ class Interpreter {
   }
 
   async callModel(config, prompt) {
+    const modelName = config.model;
+    if (this.modelLocks[modelName]) {
+      await this.modelLocks[modelName];
+    }
+
+    let releaseLock = () => {};
+    const lockPromise = new Promise(resolve => { releaseLock = resolve; });
+    this.modelLocks[modelName] = lockPromise;
+
     return new Promise((resolve, reject) => {
       const escapedPrompt = prompt.replace(/"/g, '\\"');
       const cmd = `docker model run ${config.model} "${escapedPrompt}"`;
@@ -1581,13 +1591,23 @@ class Interpreter {
       });
 
       child.on('close', (code) => {
+        releaseLock();
+        delete this.modelLocks[modelName];
         if (code !== 0) {
           this.logger.warn(`Model command exited with code ${code}: ${stderr}`);
         }
-        resolve(stdout.trim());
+        let result = stdout.trim();
+        const userMatch = result.match(/^(.*?)(?=\nUser:|$)/s);
+        if (userMatch) {
+          result = userMatch[1].trim();
+        }
+        const lastAssistant = result.split(/\nAssistant:/).pop().trim();
+        resolve(lastAssistant || result);
       });
 
       child.on('error', (err) => {
+        releaseLock();
+        delete this.modelLocks[modelName];
         this.logger.warn(`Model command failed: ${err.message}`);
         resolve('');
       });
