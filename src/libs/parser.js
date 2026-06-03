@@ -296,6 +296,12 @@ class Parser {
         case 'ask':
           return this.normalizeAskAction(value, modelsConfig);
 
+        case 'auto':
+          if (typeof value === 'string') {
+            return { type: 'auto', prompt: value };
+          }
+          return { type: 'auto', prompt: value.prompt || '', model: value.model || null };
+
         default:
           if (this.functions && this.functions[type]) {
             return {

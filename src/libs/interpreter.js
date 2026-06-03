@@ -1,5 +1,13 @@
 // Use local logger and variable engine to avoid circular requires when this
 // module is used as part of the pptr-core package.
+const fs = require('fs');
+const path = require('path');
+let yaml;
+try {
+  yaml = require('js-yaml');
+} catch (e) {
+  yaml = require('./vendor/js-yaml');
+}
 const Logger = require('./logger');
 const VariableEngine = require('./variables');
 const { createProvider } = require('./providers');
@@ -513,6 +521,10 @@ class Interpreter {
 
       case 'model':
         await this.handleModel(action);
+        break;
+
+      case 'auto':
+        await this.handleAuto(page, action);
         break;
 
       default:
@@ -1560,6 +1572,111 @@ class Interpreter {
       this.sessionHistories[modelName].push({ role: 'user', content: prompt });
       this.sessionHistories[modelName].push({ role: 'assistant', content: result });
     }
+  }
+
+  async handleAuto(page, action) {
+    const prompt = this.vars.interpolate(action.prompt);
+    const cacheFile = path.join(process.cwd(), '.auto.generated.yaml');
+
+    let cache = { prompts: [] };
+    if (fs.existsSync(cacheFile)) {
+      try {
+        const content = fs.readFileSync(cacheFile, 'utf8');
+        const loaded = yaml.load(content);
+        if (loaded && Array.isArray(loaded.prompts)) {
+          cache.prompts = loaded.prompts;
+        }
+      } catch (e) {
+        this.logger.debug(`Failed to load auto cache: ${e.message}`);
+      }
+    }
+
+    const cachedEntry = cache.prompts.find(p => p.prompt === prompt);
+    if (cachedEntry) {
+      this.logger.debug(`Auto cache hit for prompt: ${prompt}`);
+      const commands = cachedEntry.commands;
+      await this.executeActions(page, commands);
+      return;
+    }
+
+    this.logger.debug(`Auto cache miss for prompt: ${prompt}, generating...`);
+    const contextDocs = await this.loadRelevantDocs(prompt);
+    const ragContext = this.buildRagContext(contextDocs);
+    const modelName = action.model || this.getDefaultModel();
+    const modelConfig = this.resolveModelConfig(modelName);
+
+    const fullPrompt = `${ragContext}\n\nUser request: ${prompt}\n\nGenerate pptr YAML commands (actions array) that fulfill the user request. Return ONLY valid YAML without explanation.`;
+    const rawResponse = await this.callModel(modelConfig, fullPrompt);
+
+    let commands;
+    try {
+      commands = yaml.load(rawResponse);
+      if (!Array.isArray(commands)) {
+        throw new Error('Generated content is not an actions array');
+      }
+    } catch (e) {
+      throw new Error(`Failed to parse generated commands.\n\nRaw LLM response:\n---\n${rawResponse}\n---\nEdit .auto.generated.yaml manually, then re-run.`);
+    }
+
+    await this.executeActions(page, commands);
+
+    cache.prompts.push({ prompt, commands });
+    try {
+      const yamlStr = yaml.dump(cache, { indent: 2, lineWidth: -1 });
+      fs.writeFileSync(cacheFile, yamlStr, 'utf8');
+    } catch (e) {
+      this.logger.warn(`Failed to write auto cache: ${e.message}`);
+    }
+  }
+
+  async loadRelevantDocs(prompt) {
+    const docsDir = path.join(__dirname, '..', '..', 'docs', 'commands');
+    const docs = [];
+
+    if (!fs.existsSync(docsDir)) {
+      return docs;
+    }
+
+    const files = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'));
+    const promptLower = prompt.toLowerCase();
+
+    for (const file of files) {
+      const filePath = path.join(docsDir, file);
+      const content = fs.readFileSync(filePath, 'utf8');
+
+      const nameMatch = content.match(/^name:\s*(.+)$/m);
+      const descMatch = content.match(/^description:\s*(.+)$/m);
+      const name = nameMatch ? nameMatch[1].toLowerCase() : '';
+      const desc = descMatch ? descMatch[1].toLowerCase() : '';
+
+      const commandName = file.replace('.md', '');
+      const commandNameLower = commandName.toLowerCase();
+
+      if (promptLower.includes(commandNameLower) ||
+          name.includes(commandNameLower) ||
+          desc.includes(commandNameLower)) {
+        docs.push({ name: commandName, content });
+      }
+    }
+
+    return docs;
+  }
+
+  buildRagContext(docs) {
+    if (docs.length === 0) {
+      return 'Available pptr commands: click, type, log, wait, screenshot, extract, open, and more.';
+    }
+
+    let context = 'Relevant pptr commands documentation:\n\n';
+    for (const doc of docs) {
+      context += `--- ${doc.name}.md ---\n`;
+      const lines = doc.content.split('\n').filter(l => {
+        const trimmed = l.trim();
+        return trimmed.length > 0 && !trimmed.startsWith('---') && !trimmed.startsWith('#');
+      });
+      context += lines.join('\n') + '\n\n';
+    }
+    return context;
   }
 
   async callModel(config, prompt) {
