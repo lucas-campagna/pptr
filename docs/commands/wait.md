@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-wait
+name: wait
 description: Wait for element, timeout, navigation, or condition.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-retry
+name: retry
 description: Retry failed actions with optional exponential backoff.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-input
+name: input
 description: Prompt user for interactive input.
 ---
 

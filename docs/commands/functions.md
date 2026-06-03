@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-functions
+name: functions
 description: Define reusable action blocks with parameters.
 ---
 

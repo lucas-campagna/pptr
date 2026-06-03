@@ -1,5 +1,5 @@
 ---
-name: pptr-imports
+name: imports
 description: Reference guide for pptr imports. Use when importing and reusing other YAML scripts, actions, and functions with aliases.
 ---
 

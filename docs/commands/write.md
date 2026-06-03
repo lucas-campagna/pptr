@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-write
+name: write
 description: Write content to a file.
 ---
 

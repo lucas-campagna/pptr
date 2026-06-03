@@ -1,3 +1,8 @@
+---
+name: ask
+description: Call an AI model with a prompt. Use when you need text generation, question answering, or interacting with configured LLM providers.
+---
+
 # `ask`
 
 Call an AI model with a prompt. The response is stored in `result` (or a custom variable).

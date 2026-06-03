@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-log
+name: log
 description: Log a message with optional level.
 ---
 

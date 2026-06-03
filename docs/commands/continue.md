@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-continue
+name: continue
 description: Skip to next loop iteration.
 ---
 

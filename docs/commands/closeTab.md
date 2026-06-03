@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-closeTab
+name: closeTab
 description: Close the current browser tab.
 ---
 

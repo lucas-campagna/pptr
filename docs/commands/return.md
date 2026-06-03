@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-return
+name: return
 description: Return a value from a function.
 ---
 

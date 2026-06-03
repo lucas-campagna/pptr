@@ -1,3 +1,8 @@
+---
+name: shell
+description: Execute shell commands in the system shell. Use when you need to run system commands, scripts, or interact with the file system.
+---
+
 # `shell`
 
 Execute shell commands in the system shell (bash, sh, or PowerShell on Windows).

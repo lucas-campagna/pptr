@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-newTab
+name: newTab
 description: Open a new browser tab.
 ---
 

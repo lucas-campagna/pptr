@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-pdf
+name: pdf
 description: Generate PDF of the page.
 ---
 

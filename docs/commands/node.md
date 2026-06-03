@@ -1,3 +1,8 @@
+---
+name: node
+description: Execute Node.js code server-side with access to pptr variables. Use when you need server-side scripting or to access system resources.
+---
+
 # `node`
 
 Execute Node.js code server-side with access to pptr variables.

@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-parallel
+name: parallel
 description: Execute multiple action branches concurrently.
 ---
 

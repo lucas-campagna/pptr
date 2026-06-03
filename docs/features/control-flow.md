@@ -1,5 +1,5 @@
 ---
-name: pptr-control-flow
+name: control-flow
 description: Reference guide for pptr control flow. Use when implementing conditional execution, loops, retry logic, and error handling in YAML scripts.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-type
+name: type
 description: Type text into an input field.
 ---
 

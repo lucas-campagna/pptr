@@ -1,3 +1,8 @@
+---
+name: auto
+description: Generate and execute pptr commands from natural language using an AI model. Use when you want to describe browser automation tasks in plain English.
+---
+
 # `auto`
 
 Generate and execute pptr commands from natural language using an AI model.

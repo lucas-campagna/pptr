@@ -1,5 +1,5 @@
 ---
-name: pptr-variables
+name: variables
 description: Reference guide for pptr variables. Use when working with variable declaration, interpolation, expressions, and environment variables in YAML scripts.
 ---
 

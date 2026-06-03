@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-forward
+name: forward
 description: Navigate forward in browser history.
 ---
 

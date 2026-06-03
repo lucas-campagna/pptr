@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-reload
+name: reload
 description: Reload the current page.
 ---
 

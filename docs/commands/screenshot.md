@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-screenshot
+name: screenshot
 description: Take a screenshot of the page or element.
 ---
 

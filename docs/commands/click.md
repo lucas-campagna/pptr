@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-click
+name: click
 description: Click an element on the page.
 ---
 

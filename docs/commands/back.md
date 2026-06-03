@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-back
+name: back
 description: Navigate back in browser history.
 ---
 

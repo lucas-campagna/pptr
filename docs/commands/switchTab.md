@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-switchTab
+name: switchTab
 description: Switch to a different browser tab.
 ---
 

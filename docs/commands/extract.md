@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-extract
+name: extract
 description: Extract text or structured data from the page.
 ---
 

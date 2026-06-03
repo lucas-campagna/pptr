@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-open
+name: open
 description: Navigate to a URL in the browser.
 ---
 

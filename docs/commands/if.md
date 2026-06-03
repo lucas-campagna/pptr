@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-if
+name: if
 description: Conditional execution based on selector or condition.
 ---
 

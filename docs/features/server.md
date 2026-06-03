@@ -1,5 +1,5 @@
 ---
-name: pptr-server
+name: server
 description: Reference guide for pptr server mode. Use when building HTTP APIs, webhook handlers, or lightweight scraping services with pptr YAML scripts.
 ---
 

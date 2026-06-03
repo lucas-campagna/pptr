@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-select
+name: select
 description: Select an option from a dropdown.
 ---
 

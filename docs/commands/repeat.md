@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-repeat
+name: repeat
 description: Repeat actions N times.
 ---
 

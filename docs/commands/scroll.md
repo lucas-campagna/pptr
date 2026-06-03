@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-scroll
+name: scroll
 description: Scroll the page or an element.
 ---
 

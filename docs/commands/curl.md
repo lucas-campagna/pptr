@@ -1,3 +1,8 @@
+---
+name: curl
+description: Make HTTP requests using curl. Use when you need to fetch data from APIs, download files, or interact with HTTP endpoints.
+---
+
 # `curl`
 
 Make HTTP requests using curl.

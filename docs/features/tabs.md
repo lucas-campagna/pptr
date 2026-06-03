@@ -1,5 +1,5 @@
 ---
-name: pptr-tabs
+name: tabs
 description: Reference guide for pptr tabs. Use when running multiple browser tabs in parallel or sequentially within a single script.
 ---
 

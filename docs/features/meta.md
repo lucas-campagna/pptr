@@ -1,5 +1,5 @@
 ---
-name: pptr-meta
+name: meta
 description: Reference guide for pptr meta configuration. Use when setting script-level options like name, timeout, slowMo, browser, and logging.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-try
+name: try
 description: Error handling with catch block.
 ---
 

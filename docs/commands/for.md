@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-for
+name: for
 description: Iterate over items or DOM elements.
 ---
 

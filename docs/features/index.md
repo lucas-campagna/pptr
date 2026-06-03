@@ -1,3 +1,8 @@
+---
+name: features
+description: Conceptual guides for pptr major features including server mode, functions, variables, tabs, control flow, imports, and subcommands.
+---
+
 # Features
 
 Conceptual guides for pptr's major features.

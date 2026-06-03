@@ -1,3 +1,8 @@
+---
+name: js
+description: Execute JavaScript code in the browser context. Use when you need to run browser-side scripting for DOM manipulation or page interactions.
+---
+
 # `js`
 
 Execute JavaScript code in the browser context. Similar to `run`, but explicitly scoped for browser-side execution.

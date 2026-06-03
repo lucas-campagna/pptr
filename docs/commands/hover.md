@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-hover
+name: hover
 description: Hover over an element.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-break
+name: break
 description: Exit a loop early.
 ---
 

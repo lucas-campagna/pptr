@@ -1,5 +1,5 @@
 ---
-name: pptr-subcommands
+name: subcommands
 description: Reference guide for pptr subcommands. Use when defining named entry points within a single YAML script.
 ---
 

@@ -1,3 +1,8 @@
+---
+name: models
+description: Reference guide for pptr AI models. Use when configuring AI model providers, setting default models, managing context, and using the ask action for text generation.
+---
+
 # Models
 
 Configure AI models for use with the `ask` action or direct model calls.

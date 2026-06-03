@@ -1,5 +1,5 @@
 ---
-name: pptr-cmd-press
+name: press
 description: Press a keyboard key.
 ---
 

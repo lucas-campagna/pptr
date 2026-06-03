@@ -1,3 +1,8 @@
+---
+name: choice
+description: Present a list of options to the user and store the selected option in a variable. Use when you need user interaction for decision making.
+---
+
 # `choice`
 
 Present a list of options to the user and store the selected option in a variable.
