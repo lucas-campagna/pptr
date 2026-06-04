@@ -98,6 +98,12 @@ class Parser {
     }
 
     if (!Array.isArray(actions)) {
+      if (typeof actions === 'object' && actions !== null) {
+        const keys = Object.keys(actions);
+        if (keys.length === 1) {
+          return [this.normalizeAction(actions, modelsConfig)];
+        }
+      }
       return [];
     }
 
@@ -105,6 +111,10 @@ class Parser {
   }
 
   normalizeAction(action, modelsConfig = {}) {
+    if (typeof action === 'string') {
+      return { type: 'auto', prompt: action };
+    }
+    
     if (typeof action === 'object' && action !== null) {
       const keys = Object.keys(action);
       if (keys.length !== 1) {

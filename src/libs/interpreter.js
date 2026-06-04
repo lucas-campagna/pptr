@@ -11,6 +11,7 @@ try {
 const Logger = require('./logger');
 const VariableEngine = require('./variables');
 const { createProvider } = require('./providers');
+const Parser = require('./parser');
 
 class Interpreter {
   constructor(browser, options = {}) {
@@ -1578,49 +1579,124 @@ class Interpreter {
     const prompt = this.vars.interpolate(action.prompt);
     const cacheFile = path.join(process.cwd(), '.auto.generated.yaml');
 
-    let cache = { prompts: [] };
+    let cache = [];
     if (fs.existsSync(cacheFile)) {
       try {
         const content = fs.readFileSync(cacheFile, 'utf8');
         const loaded = yaml.load(content);
-        if (loaded && Array.isArray(loaded.prompts)) {
-          cache.prompts = loaded.prompts;
-        }
+        cache = Array.isArray(loaded) ? loaded : (loaded.prompts || []);
       } catch (e) {
         this.logger.debug(`Failed to load auto cache: ${e.message}`);
       }
     }
 
-    const cachedEntry = cache.prompts.find(p => p.prompt === prompt);
+    const cachedEntry = cache.find(p => p.prompt === prompt);
     if (cachedEntry) {
       this.logger.debug(`Auto cache hit for prompt: ${prompt}`);
-      const commands = cachedEntry.commands;
+      const cachedCommands = cachedEntry.commands;
+      const parser = new Parser();
+      const commands = cachedCommands.map(a => parser.normalizeAction(a, {}));
       await this.executeActions(page, commands);
       return;
     }
 
     this.logger.debug(`Auto cache miss for prompt: ${prompt}, generating...`);
-    const contextDocs = await this.loadRelevantDocs(prompt);
-    const ragContext = this.buildRagContext(contextDocs);
     const modelName = action.model || this.getDefaultModel();
+    this.logger.debug(`Using model: ${modelName}`);
     const modelConfig = this.resolveModelConfig(modelName);
+    const headers = await this.loadAllDocHeaders();
+    const relevantCommandNames = await this.selectRelevantCommands(prompt, headers, modelConfig);
+    const contextDocs = await this.loadDocsByNames(relevantCommandNames);
+    this.logger.debug(`Loaded ${contextDocs.length} relevant docs`);
+    const ragContext = this.buildRagContext(contextDocs);
 
     const fullPrompt = `${ragContext}\n\nUser request: ${prompt}\n\nGenerate pptr YAML commands (actions array) that fulfill the user request. Return ONLY valid YAML without explanation.`;
+    this.logger.debug(`Calling model with prompt length: ${fullPrompt.length}`);
     const rawResponse = await this.callModel(modelConfig, fullPrompt);
+    this.logger.debug(`Model response: ${rawResponse.substring(0, 500)}`);
 
     let commands;
+    let userFormatCommands = [];
     try {
-      commands = yaml.load(rawResponse);
-      if (!Array.isArray(commands)) {
+      let cleaned = rawResponse.replace(/```(?:yaml|json)\n?/gi, '').replace(/```\n?/gi, '').trim();
+      this.logger.debug(`Cleaned response: ${cleaned.substring(0, 200)}`);
+      
+      let parsed;
+      try {
+        parsed = yaml.load(cleaned);
+      } catch (yamlErr) {
+        this.logger.debug(`YAML parse failed, trying fix: ${yamlErr.message}`);
+        const fixed = cleaned.replace(/:\s*\{\{[^}]+\}\}/g, ': ""');
+        try {
+          parsed = yaml.load(fixed);
+        } catch (e2) {
+          const lines = cleaned.split('\n').filter(l => l.trim());
+          parsed = lines.map(l => {
+            const idx = l.indexOf(':');
+            if (idx > 0) {
+              const key = l.slice(0, idx).trim();
+              const val = l.slice(idx + 1).trim();
+              return { [key]: val || {} };
+            }
+            return l;
+          });
+        }
+      }
+      
+      const actionArray = Array.isArray(parsed) ? parsed : [parsed];
+      
+      const parser = new Parser();
+      const userFormatCommands = actionArray.map(a => {
+        if (!a || typeof a !== 'object') return null;
+        
+        const keys = Object.keys(a);
+        if (keys.length === 1 && a.action === undefined && a.command === undefined) {
+          const actionName = keys[0];
+          let value = a[actionName];
+          if (typeof value === 'object' && value !== null) {
+            return { [actionName]: value };
+          }
+          return { [actionName]: value || '' };
+        }
+        
+        if (a.action !== undefined) {
+          let value = a.value;
+          if (value === undefined) {
+            value = a.url || a.path || a.selector || a.text || '';
+          }
+          if (typeof value === 'object' && value !== null) {
+            value = value.url || value.path || value.name || JSON.stringify(value);
+          }
+          return { [a.action]: value };
+        }
+        if (a.command !== undefined) {
+          let value = a.text;
+          if (value === undefined) {
+            value = a.value || '';
+          }
+          if (typeof value === 'object' && value !== null) {
+            value = value.path || value.name || JSON.stringify(value);
+          }
+          return { [a.command]: value };
+        }
+        
+        return a;
+      }).filter(a => a !== null);
+      
+      commands = userFormatCommands.map(a => parser.normalizeAction(a, {}));
+      
+      if (!Array.isArray(commands) || commands.length === 0) {
         throw new Error('Generated content is not an actions array');
       }
     } catch (e) {
       throw new Error(`Failed to parse generated commands.\n\nRaw LLM response:\n---\n${rawResponse}\n---\nEdit .auto.generated.yaml manually, then re-run.`);
     }
 
+    this.logger.debug(`Normalized commands: ${JSON.stringify(commands)}`);
+
     await this.executeActions(page, commands);
 
-    cache.prompts.push({ prompt, commands });
+    cache.push({ prompt, commands: userFormatCommands });
     try {
       const yamlStr = yaml.dump(cache, { indent: 2, lineWidth: -1 });
       fs.writeFileSync(cacheFile, yamlStr, 'utf8');
@@ -1629,16 +1705,15 @@ class Interpreter {
     }
   }
 
-  async loadRelevantDocs(prompt) {
+  async loadAllDocHeaders() {
     const docsDir = path.join(__dirname, '..', '..', 'docs', 'commands');
-    const docs = [];
+    const headers = [];
 
     if (!fs.existsSync(docsDir)) {
-      return docs;
+      return headers;
     }
 
     const files = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'));
-    const promptLower = prompt.toLowerCase();
 
     for (const file of files) {
       const filePath = path.join(docsDir, file);
@@ -1646,16 +1721,53 @@ class Interpreter {
 
       const nameMatch = content.match(/^name:\s*(.+)$/m);
       const descMatch = content.match(/^description:\s*(.+)$/m);
-      const name = nameMatch ? nameMatch[1].toLowerCase() : '';
-      const desc = descMatch ? descMatch[1].toLowerCase() : '';
+      const name = nameMatch ? nameMatch[1].trim() : '';
+      const desc = descMatch ? descMatch[1].trim() : '';
 
-      const commandName = file.replace('.md', '');
-      const commandNameLower = commandName.toLowerCase();
+      if (name) {
+        headers.push({ name, description: desc, filename: file });
+      }
+    }
 
-      if (promptLower.includes(commandNameLower) ||
-          name.includes(commandNameLower) ||
-          desc.includes(commandNameLower)) {
-        docs.push({ name: commandName, content });
+    return headers;
+  }
+
+  async selectRelevantCommands(prompt, headers, modelConfig) {
+    if (headers.length === 0) {
+      return [];
+    }
+
+    const headersText = headers.map(h => `${h.name}: ${h.description}`).join('\n');
+    const selectionPrompt = `User wants: ${prompt}\n\nRelevant commands (return JSON array):\n${headersText}`;
+
+    const response = await this.callModel(modelConfig, selectionPrompt);
+
+    try {
+      const cleaned = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const selected = JSON.parse(cleaned);
+      if (Array.isArray(selected)) {
+        return selected.map(s => String(s).trim()).filter(s => s.length > 0);
+      }
+    } catch (e) {
+      this.logger.debug(`Failed to parse command selection: ${e.message}`);
+    }
+
+    return [];
+  }
+
+  async loadDocsByNames(names) {
+    const docsDir = path.join(__dirname, '..', '..', 'docs', 'commands');
+    const docs = [];
+
+    if (!fs.existsSync(docsDir) || !names || names.length === 0) {
+      return docs;
+    }
+
+    for (const name of names) {
+      const filePath = path.join(docsDir, `${name}.md`);
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        docs.push({ name, content });
       }
     }
 
