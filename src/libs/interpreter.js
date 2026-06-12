@@ -10,7 +10,6 @@ try {
 }
 const Logger = require('./logger');
 const VariableEngine = require('./variables');
-const { createProvider } = require('./providers');
 const Parser = require('./parser');
 
 class Interpreter {
@@ -34,7 +33,7 @@ class Interpreter {
     this.serverPort = options.server || null;
     this.routes = options.routes || {};
     this.httpServer = null;
-    this.models = options.models || {};
+    this.agents = options.agents || {};
     this.meta = options.meta || {};
     this.sessionHistories = {};
     this.allowBrowser = this.meta.browser !== false;
@@ -520,8 +519,8 @@ class Interpreter {
         await this.handleAsk(action);
         break;
 
-      case 'model':
-        await this.handleModel(action);
+      case 'agent':
+        await this.handleAgent(action);
         break;
 
       case 'auto':
@@ -1474,104 +1473,100 @@ class Interpreter {
     return { params };
   }
 
-  getDefaultModel() {
-    const modelsConfig = this.meta.models || {};
-    if (modelsConfig.default) {
-      return modelsConfig.default;
+  getDefaultAgent() {
+    const agentsConfig = this.meta.agents || {};
+    if (agentsConfig.default) {
+      return agentsConfig.default;
     }
-    const modelKeys = Object.keys(this.models);
-    if (modelKeys.length === 1) {
-      return modelKeys[0];
+    const agentKeys = Object.keys(this.agents);
+    if (agentKeys.length === 1) {
+      return agentKeys[0];
     }
     return null;
   }
 
-  resolveModelConfig(modelName) {
-    if (!modelName) {
-      const defaultModel = this.getDefaultModel();
-      if (!defaultModel) {
-        throw new Error('No default model found. Set meta.models.default or define exactly one model.');
+  resolveAgentConfig(agentName) {
+    if (!agentName) {
+      const defaultAgent = this.getDefaultAgent();
+      if (!defaultAgent) {
+        throw new Error('No default agent found. Set meta.agents.default or define exactly one agent.');
       }
-      modelName = defaultModel;
+      agentName = defaultAgent;
     }
-    const config = this.models[modelName];
+    const config = this.agents[agentName];
     if (!config) {
-      throw new Error(`Model '${modelName}' not found in models configuration.`);
+      throw new Error(`Agent '${agentName}' not found in agents configuration.`);
     }
     return config;
   }
 
-  buildContextString(modelName, prompt, actionContext, continueFlag) {
-    const config = this.models[modelName] || {};
-    const defaultContinue = this.meta.models?.continue || false;
+  buildMessages(agentName, prompt, actionContext, continueFlag) {
+    const config = this.agents[agentName] || {};
+    const defaultContinue = this.meta.agents?.continue || false;
     const shouldContinue = actionContext !== undefined ? actionContext : defaultContinue;
 
-    let contextMsgs = [...(config.context || [])];
+    const messages = [];
+
+    if (config.systemPrompt) {
+      messages.push({ role: 'system', content: config.systemPrompt });
+    }
 
     if (actionContext && actionContext.context) {
-      contextMsgs = contextMsgs.concat(actionContext.context);
-    }
-
-    if (shouldContinue && this.sessionHistories[modelName]) {
-      contextMsgs = contextMsgs.concat(this.sessionHistories[modelName]);
-    }
-
-    let promptWithContext = '';
-    for (const msg of contextMsgs) {
-      if (msg.role === 'system') {
-        promptWithContext += `System: ${msg.content}\n`;
-      } else if (msg.role === 'user') {
-        promptWithContext += `User: ${msg.content}\n`;
-      } else if (msg.role === 'assistant') {
-        promptWithContext += `Assistant: ${msg.content}\n`;
+      for (const msg of actionContext.context) {
+        messages.push(msg);
       }
     }
-    promptWithContext += `User: ${prompt}`;
 
-    return promptWithContext;
+    if (shouldContinue && this.sessionHistories[agentName]) {
+      messages.push(...this.sessionHistories[agentName]);
+    }
+
+    messages.push({ role: 'user', content: prompt });
+
+    return messages;
   }
 
   async handleAsk(action) {
     const prompt = this.vars.interpolate(action.prompt);
-    const modelName = action.model || this.getDefaultModel();
-    const config = this.resolveModelConfig(modelName);
+    const agentName = action.agent || this.getDefaultAgent();
+    const config = this.resolveAgentConfig(agentName);
 
-    const contextString = this.buildContextString(modelName, prompt, action, action.continue);
+    const messages = this.buildMessages(agentName, prompt, action, action.continue);
     const save = action.save || 'result';
 
-    const result = await this.callModel(config, contextString);
+    const result = await this.callAgent(config, messages);
     this.vars.set(save, result);
 
-    const defaultContinue = this.meta.models?.continue || false;
+    const defaultContinue = this.meta.agents?.continue || false;
     const shouldContinue = action.continue !== undefined ? action.continue : defaultContinue;
     if (shouldContinue && result) {
-      if (!this.sessionHistories[modelName]) {
-        this.sessionHistories[modelName] = [];
+      if (!this.sessionHistories[agentName]) {
+        this.sessionHistories[agentName] = [];
       }
-      this.sessionHistories[modelName].push({ role: 'user', content: prompt });
-      this.sessionHistories[modelName].push({ role: 'assistant', content: result });
+      this.sessionHistories[agentName].push({ role: 'user', content: prompt });
+      this.sessionHistories[agentName].push({ role: 'assistant', content: result });
     }
   }
 
-  async handleModel(action) {
-    const modelName = action.name;
+  async handleAgent(action) {
+    const agentName = action.name;
     const prompt = this.vars.interpolate(action.prompt);
-    const config = this.resolveModelConfig(modelName);
+    const config = this.resolveAgentConfig(agentName);
 
-    const contextString = this.buildContextString(modelName, prompt, action, action.continue);
+    const messages = this.buildMessages(agentName, prompt, action, action.continue);
     const save = action.save || 'result';
 
-    const result = await this.callModel(config, contextString);
+    const result = await this.callAgent(config, messages);
     this.vars.set(save, result);
 
-    const defaultContinue = this.meta.models?.continue || false;
+    const defaultContinue = this.meta.agents?.continue || false;
     const shouldContinue = action.continue !== undefined ? action.continue : defaultContinue;
     if (shouldContinue && result) {
-      if (!this.sessionHistories[modelName]) {
-        this.sessionHistories[modelName] = [];
+      if (!this.sessionHistories[agentName]) {
+        this.sessionHistories[agentName] = [];
       }
-      this.sessionHistories[modelName].push({ role: 'user', content: prompt });
-      this.sessionHistories[modelName].push({ role: 'assistant', content: result });
+      this.sessionHistories[agentName].push({ role: 'user', content: prompt });
+      this.sessionHistories[agentName].push({ role: 'assistant', content: result });
     }
   }
 
@@ -1601,19 +1596,19 @@ class Interpreter {
     }
 
     this.logger.debug(`Auto cache miss for prompt: ${prompt}, generating...`);
-    const modelName = action.model || this.getDefaultModel();
-    this.logger.debug(`Using model: ${modelName}`);
-    const modelConfig = this.resolveModelConfig(modelName);
+    const agentName = action.agent || this.getDefaultAgent();
+    this.logger.debug(`Using agent: ${agentName}`);
+    const agentConfig = this.resolveAgentConfig(agentName);
     const headers = await this.loadAllDocHeaders();
-    const relevantCommandNames = await this.selectRelevantCommands(prompt, headers, modelConfig);
+    const relevantCommandNames = await this.selectRelevantCommands(prompt, headers, agentConfig);
     const contextDocs = await this.loadDocsByNames(relevantCommandNames);
     this.logger.debug(`Loaded ${contextDocs.length} relevant docs`);
     const ragContext = this.buildRagContext(contextDocs);
 
     const fullPrompt = `${ragContext}\n\nUser request: ${prompt}\n\nGenerate pptr YAML commands (actions array) that fulfill the user request. Return ONLY valid YAML without explanation.`;
-    this.logger.debug(`Calling model with prompt length: ${fullPrompt.length}`);
-    const rawResponse = await this.callModel(modelConfig, fullPrompt);
-    this.logger.debug(`Model response: ${rawResponse.substring(0, 500)}`);
+    this.logger.debug(`Calling agent with prompt length: ${fullPrompt.length}`);
+    const rawResponse = await this.callAgent(agentConfig, [{ role: 'user', content: fullPrompt }]);
+    this.logger.debug(`Agent response: ${rawResponse.substring(0, 500)}`);
 
     let commands;
     let userFormatCommands = [];
@@ -1732,7 +1727,7 @@ class Interpreter {
     return headers;
   }
 
-  async selectRelevantCommands(prompt, headers, modelConfig) {
+  async selectRelevantCommands(prompt, headers, agentConfig) {
     if (headers.length === 0) {
       return [];
     }
@@ -1740,7 +1735,7 @@ class Interpreter {
     const headersText = headers.map(h => `${h.name}: ${h.description}`).join('\n');
     const selectionPrompt = `User wants: ${prompt}\n\nRelevant commands (return JSON array):\n${headersText}`;
 
-    const response = await this.callModel(modelConfig, selectionPrompt);
+    const response = await this.callAgent(agentConfig, [{ role: 'user', content: selectionPrompt }]);
 
     try {
       const cleaned = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -1791,28 +1786,165 @@ class Interpreter {
     return context;
   }
 
-  async callModel(config, prompt) {
-    const modelName = config.model;
-    if (this.modelLocks[modelName]) {
-      await this.modelLocks[modelName];
+  async callAgent(config, messages) {
+    const agentName = config.model;
+    const cacheKey = agentName;
+
+    if (this.agentLocks && this.agentLocks[cacheKey]) {
+      await this.agentLocks[cacheKey];
     }
 
     let releaseLock = () => {};
+    if (!this.agentLocks) this.agentLocks = {};
     const lockPromise = new Promise(resolve => { releaseLock = resolve; });
-    this.modelLocks[modelName] = lockPromise;
+    this.agentLocks[cacheKey] = lockPromise;
 
     try {
-      const provider = createProvider(config, this.logger);
-      const result = await provider.call(prompt, prompt);
+      const { createAgent, tool } = require('langchain');
+      const { z } = require('zod');
+
+      let agent = this.cachedAgents ? this.cachedAgents[cacheKey] : null;
+
+      if (!agent) {
+        const model = config.model;
+
+        const tools = [];
+        for (const toolConfig of (config.tools || [])) {
+          if (toolConfig.type === 'builtin') {
+            continue;
+          } else if (toolConfig.type === 'builtin_with_actions') {
+            const t = tool(
+              (input, runtime) => {
+                return this.executeToolActions(toolConfig.name, input, runtime, toolConfig.actions);
+              },
+              {
+                name: this.toSnakeCase(toolConfig.name),
+                description: toolConfig.description || '',
+                schema: toolConfig.schema ? this.buildZodSchema(toolConfig.schema) : z.object({}),
+              }
+            );
+            tools.push(t);
+          } else if (toolConfig.type === 'function') {
+            const funcDef = this.functions && this.functions[toolConfig.name];
+            if (funcDef) {
+              const t = tool(
+                (input, runtime) => {
+                  return this.executeFunctionTool(toolConfig.name, input, runtime, funcDef);
+                },
+                {
+                  name: this.toSnakeCase(toolConfig.name),
+                  description: toolConfig.description || '',
+                  schema: toolConfig.schema ? this.buildZodSchema(toolConfig.schema) : z.object({}),
+                }
+              );
+              tools.push(t);
+            }
+          }
+        }
+
+        const agentConfig = {
+          model,
+          tools,
+        };
+
+        if (config.systemPrompt) {
+          agentConfig.systemPrompt = config.systemPrompt;
+        }
+
+        if (config.responseFormat) {
+          agentConfig.responseFormat = this.buildZodSchema(config.responseFormat);
+        }
+
+        if (config.contextSchema) {
+          agentConfig.contextSchema = this.buildZodSchema(config.contextSchema);
+        }
+
+        agent = createAgent(agentConfig);
+
+        if (!this.cachedAgents) this.cachedAgents = {};
+        this.cachedAgents[cacheKey] = agent;
+      }
+
+      const result = await agent.invoke({ messages });
+
+      let response = '';
+      if (result.messages && result.messages.length > 0) {
+        const lastMsg = result.messages[result.messages.length - 1];
+        response = lastMsg.content || '';
+        if (result.structuredResponse) {
+          response = JSON.stringify(result.structuredResponse);
+        }
+      }
+
       releaseLock();
-      delete this.modelLocks[modelName];
-      return result;
+      delete this.agentLocks[cacheKey];
+      return response;
     } catch (err) {
       releaseLock();
-      delete this.modelLocks[modelName];
-      this.logger.warn(`Model call failed: ${err.message}`);
+      if (this.agentLocks) delete this.agentLocks[cacheKey];
+      this.logger.warn(`Agent call failed: ${err.message}`);
       return '';
     }
+  }
+
+  toSnakeCase(name) {
+    return name.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+  }
+
+  buildZodSchema(properties) {
+    const { z } = require('zod');
+    const shape = {};
+    for (const [key, value] of Object.entries(properties)) {
+      let fieldSchema;
+      if (value.type === 'string') {
+        fieldSchema = z.string();
+      } else if (value.type === 'number' || value.type === 'integer') {
+        fieldSchema = z.number();
+      } else if (value.type === 'boolean') {
+        fieldSchema = z.boolean();
+      } else if (value.type === 'array') {
+        fieldSchema = z.array(z.string());
+      } else if (value.type === 'object') {
+        fieldSchema = z.record(z.string());
+      } else {
+        fieldSchema = z.string();
+      }
+      if (value.description) {
+        fieldSchema = fieldSchema.describe(value.description);
+      }
+      shape[key] = fieldSchema;
+    }
+    return z.object(shape);
+  }
+
+  async executeToolActions(toolName, input, runtime, actions) {
+    this.vars.set('tool_input', input);
+    this.vars.set('tool_name', toolName);
+    try {
+      for (const action of actions) {
+        await this.executeAction(null, action);
+      }
+    } catch (e) {
+      if (e.message !== 'RETURN') throw e;
+    }
+    return this.vars.get('tool_result') || '';
+  }
+
+  async executeFunctionTool(funcName, input, runtime, funcDef) {
+    const prevVars = { ...this.vars.vars };
+    try {
+      for (const [key, value] of Object.entries(input)) {
+        this.vars.set(key, value);
+      }
+      for (const action of funcDef.actions) {
+        await this.executeAction(null, action);
+      }
+    } catch (e) {
+      if (e.message !== 'RETURN') throw e;
+    } finally {
+      this.vars.vars = prevVars;
+    }
+    return this.vars.get('result') || '';
   }
 
   async setupShutdown() {
