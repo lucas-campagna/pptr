@@ -12,7 +12,6 @@ const Logger = require('./logger');
 const Parser = require('./parser');
 const VariableEngine = require('./variables');
 const Interpreter = require('./interpreter');
-const { isDockerProvider } = require('./providers');
 
 class Runner {
   constructor(options = {}) {
@@ -26,11 +25,8 @@ class Runner {
       version: options.version || "1.0.0",
       subcommands: options.subcommands || [],
       server: options.server || null,
-      modelsSession: options.modelsSession || 'auto',
       ...options,
     };
-    this.loadedModels = [];
-    this.sessionFile = null;
   }
 
   getVersion() {
@@ -60,52 +56,6 @@ class Runner {
         else resolve(stdout);
       });
     });
-  }
-
-  async loadModels(models, logger) {
-    if (!models || Object.keys(models).length === 0) {
-      return;
-    }
-
-    for (const [name, config] of Object.entries(models)) {
-      if (!isDockerProvider(config)) {
-        logger.debug(`Skipping model ${name} (${config.provider} provider - no container needed)`);
-        continue;
-      }
-      try {
-        logger.debug(`Loading model ${name} (${config.model})...`);
-        await this.execHide(`docker model run -d ${config.model}`);
-        this.loadedModels.push(config.model);
-        logger.debug(`Model ${name} loaded`);
-      } catch (e) {
-        logger.debug(`Failed to load model ${name}: ${e.message}`);
-      }
-    }
-  }
-
-  async cleanupModels(logger) {
-    const modelsSession = this.options.modelsSession || 'auto';
-
-    if (modelsSession === 'manual') {
-      const sessionFile = this.sessionFile || path.join(os.tmpdir(), 'pptr_models_session.json');
-      const data = {
-        models: this.loadedModels,
-        cleanupCommand: this.loadedModels.map(m => `docker model rm ${m}`).join('\n'),
-      };
-      fs.writeFileSync(sessionFile, JSON.stringify(data, null, 2));
-      logger.debug(`Session file written to ${sessionFile}`);
-      return;
-    }
-
-    for (const model of this.loadedModels) {
-      try {
-        logger.debug(`Unloading model ${model}...`);
-        await this.execHide(`docker model unload ${model}`);
-      } catch (e) {
-        logger.debug(`Failed to unload model ${model}: ${e.message}`);
-      }
-    }
-    this.loadedModels = [];
   }
 
   async ensureDependencies(logger) {
@@ -273,18 +223,21 @@ class Runner {
     const script = parser.parseFile(scriptPath);
 
     const meta = script.meta || {};
+
+    if (meta.env && typeof meta.env === 'object') {
+      for (const [key, value] of Object.entries(meta.env)) {
+        if (typeof value === 'string') {
+          process.env[key] = value;
+        }
+      }
+    }
+
     const logPath = this.options.logPath || meta.logs;
 
     const logger = new Logger(logPath, this.options.debug);
     logger.debug("Initializing Puppeteer");
 
     const useBrowser = meta.browser !== false;
-
-    if (meta.models && Object.keys(meta.models).length > 0) {
-      this.options.modelsSession = meta.models.session || this.options.modelsSession;
-    }
-
-    await this.loadModels(script.models, logger);
 
     const importsRegistry = {};
     if (script.import && typeof script.import === 'object') {
@@ -438,7 +391,7 @@ class Runner {
         imports: importsRegistry,
         server: this.options.server,
         routes: script.routes,
-        models: script.models,
+        agents: script.agents,
         meta,
       });
 
@@ -479,7 +432,6 @@ class Runner {
         } catch (e) {}
         logger.debug("Browser closed");
       }
-      await this.cleanupModels(logger);
     }
 
     return result;
