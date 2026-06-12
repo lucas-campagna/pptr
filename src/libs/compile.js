@@ -100,6 +100,9 @@ function flattenActions(actions, importsRegistry, compiledDoc, nameMap = {}) {
     if (!action.type && keys.length === 1 && keys[0].includes('.')) {
       importKey = keys[0];
       importVal = action[importKey];
+    } else if (action.type === 'auto' && action.prompt && typeof action.prompt === 'string' && action.prompt.includes('.')) {
+      importKey = action.prompt;
+      importVal = null;
     } else if (action.type && typeof action.type === 'string' && action.type.includes('.')) {
       importKey = action.type;
       importVal = action.value !== undefined ? action.value : null;
