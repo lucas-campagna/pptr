@@ -1,7 +1,9 @@
 meta:
   browser: false
-  models:
+  agents:
     continue: true
+  env:
+    OLLAMA_BASE_URL: "http://localhost:12434"
 
 actions:
   - parallel:
@@ -28,15 +30,10 @@ actions:
           - model_b: What is my name?
           - log: "C3: ${result}"
 
-models:
+agents:
   gemini:
-    provider: gemini
-    model: gemini-2.5-flash
-    api_key: AIzaSyCPfHJue8anSgAnsBYTtvpQ6I19XVK8hTo
-    temperature: 0
+    model: "google-genai:gemini-2.5-flash"
   model_a:
-    model: smollm2
-    temperature: 0
+    model: "ollama:smollm2"
   model_b:
-    model: smollm2
-    temperature: 0
+    model: "ollama:smollm2"
