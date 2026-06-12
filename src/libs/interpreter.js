@@ -32,12 +32,44 @@ class Interpreter {
     this.imports = options.imports || {};
     this.serverPort = options.server || null;
     this.routes = options.routes || {};
-    this.httpServer = null;
+this.httpServer = null;
     this.agents = options.agents || {};
     this.meta = options.meta || {};
     this.sessionHistories = {};
-    this.allowBrowser = this.meta.browser !== false;
+    this.browserMode = this.meta.browser === undefined ? 'auto' : this.meta.browser;
+    this.allowBrowser = this.browserMode !== false;
+    this.pendingOpen = null;
     this.modelLocks = {};
+  }
+
+  requireBrowser() {
+    if (!this.allowBrowser) {
+      throw new Error("Browser is disabled (meta.browser: false). This action requires a browser.");
+    }
+  }
+
+  async ensurePage() {
+    if (!this.allowBrowser) {
+      throw new Error("Browser is disabled. This action requires a browser.");
+    }
+    if (this.pages.length > 0) {
+      return this.pages[this.currentIndex];
+    }
+    if (this.pendingOpen) {
+      const page = await this.browser.newPage();
+      await page.goto(this.pendingOpen, { waitUntil: 'domcontentloaded' });
+      this.pages.push(page);
+      this.pendingOpen = null;
+      return page;
+    }
+    return await this.browser.newPage();
+  }
+
+  getCurrentPage() {
+    if (this.pages.length === 0 && this.browserMode === 'auto') {
+      return null;
+    }
+    return this.pages[this.currentIndex];
   }
 
   async delay(ms) {
@@ -208,7 +240,10 @@ class Interpreter {
     this.functions = content.functions || {};
 
     let page = null;
-    if (this.allowBrowser) {
+    if (this.browserMode === 'auto' && content.open) {
+      this.pendingOpen = this.vars.interpolate(content.open);
+      this.logger.debug(`Auto mode: deferring navigation to ${this.pendingOpen}`);
+    } else if (this.allowBrowser) {
       if (content.open) {
         const url = this.vars.interpolate(content.open);
         this.logger.debug(`Navigating to ${url}`);
@@ -274,6 +309,9 @@ class Interpreter {
 
   async executeActions(page, actions) {
     for (const action of actions) {
+      if (page === null && this.browserMode === 'auto') {
+        page = await this.ensurePage();
+      }
       // Do not pre-interpolate deeply here: control structures like `for`
       // define loop variables that are only available when their inner
       // actions run. Interpolating nested actions early would substitute
@@ -349,6 +387,10 @@ class Interpreter {
   }
 
   async executeAction(page, action) {
+    if (page === null && this.browserMode === 'auto') {
+      page = await this.ensurePage();
+    }
+
     switch (action.type) {
       case 'click':
         await this.handleClick(page, action);

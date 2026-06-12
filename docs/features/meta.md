@@ -68,12 +68,22 @@ meta:
 
 ### `browser`
 
-Enable or disable browser initialization. When set to `false`, no browser is launched and any action requiring a browser will raise an error.
+Control browser initialization. Three modes are supported:
+
+| Value | Behavior |
+|-------|----------|
+| `auto` (default) | Browser is not launched until first browser action is used |
+| `true` | Browser is launched immediately at script start |
+| `false` | Browser is never used; any browser action will raise an error |
 
 ```yaml
 meta:
-  browser: false  # disables browser (default: true)
+  browser: auto    # default - lazy initialization
+  browser: true    # launch immediately
+  browser: false   # disable browser entirely
 ```
+
+In `auto` mode, the browser is launched on-demand when the first browser action (like `open`, `click`, `type`, etc.) is executed. This improves startup time for scripts that don't need a browser.
 
 ### `models`
 
