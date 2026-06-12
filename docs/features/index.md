@@ -15,7 +15,7 @@ Conceptual guides for pptr's major features.
 | [Functions](functions.md) | Define reusable action blocks with parameters |
 | [Variables](variables.md) | Store and interpolate values throughout scripts |
 | [Meta](meta.md) | Script metadata and configuration options |
-| [Models](models.md) | Configure AI models for automation |
+| [Agents](agents.md) | Configure AI agents using LangChain |
 | [Imports](imports.md) | Import and reuse other YAML scripts |
 | [Tabs](tabs.md) | Run multiple browser tabs in parallel |
 | [Subcommands](subcommands.md) | Define named entry points in a script |
