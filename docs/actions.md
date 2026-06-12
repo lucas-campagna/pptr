@@ -215,11 +215,11 @@ actions:
 
 ---
 
-## AI/Models
+## AI/Agents
 
 ### `ask`
 
-Call an AI model with a prompt. Response stored in `result`.
+Call an AI agent with a prompt. Response stored in `result`.
 
 ```yaml
 # Simple usage
@@ -231,26 +231,26 @@ actions:
 actions:
   - ask:
       prompt: "Summarize this page"
-      model: mymodel
+      agent: myagent
       continue: true
   - log: "Summary: ${result}"
 ```
 
-### Direct Model Call
+### Direct Agent Call
 
-Call a specific named model directly:
+Call a specific named agent directly:
 
 ```yaml
-models:
-  mymodel:
-    model: smollm2
+agents:
+  myagent:
+    model: "ollama:smollm2"
 
 actions:
-  - mymodel: "Hello"
+  - myagent: "Hello"
   - log: "Response: ${result}"
 ```
 
-See [`ask`](commands/ask.md) and [`models`](features/models.md) for full documentation.
+See [`ask`](commands/ask.md) and [`agents`](features/agents.md) for full documentation.
 
 ---
 

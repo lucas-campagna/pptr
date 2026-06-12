@@ -77,15 +77,27 @@ meta:
 
 ### `models`
 
-Configure default model behavior. See [Models](models.md) for full documentation.
+Configure default model behavior. See [Agents](agents.md) for full documentation.
 
 ```yaml
 meta:
-  models:
-    default: mymodel
+  agents:
+    default: myagent
     continue: false
-    session: auto
 ```
+
+### `env`
+
+Set environment variables for the script. These are applied before the script runs and can be used to configure API keys, endpoints, etc.
+
+```yaml
+meta:
+  env:
+    OLLAMA_BASE_URL: "http://localhost:12434"
+    GOOGLE_API_KEY: "your-api-key-here"
+```
+
+Environment variables set in `meta.env` take precedence over existing system environment variables but only for the duration of the script execution.
 
 ## Example
 

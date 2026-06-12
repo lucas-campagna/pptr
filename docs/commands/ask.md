@@ -1,16 +1,16 @@
 ---
 name: ask
-description: Call an AI model with a prompt. Use when you need text generation, question answering, or interacting with configured LLM providers.
+description: Call an AI agent with a prompt using LangChain. Use when you need text generation, question answering, or interacting with configured LLM agents.
 ---
 
 # `ask`
 
-Call an AI model with a prompt. The response is stored in `result` (or a custom variable).
+Call an AI agent with a prompt. The response is stored in `result` (or a custom variable).
 
 ## Syntax
 
 ```yaml
-# Simple usage (uses default model)
+# Simple usage (uses default agent)
 actions:
   - ask: "What is 2+2?"
   - log: "Answer: ${result}"
@@ -22,9 +22,7 @@ Or with full options:
 actions:
   - ask:
       prompt: "What is the weather like?"
-      model: mymodel   # override default model
-      temperature: 0.7 # override model temperature
-      max_tokens: 500 # limit response length
+      agent: myagent   # override default agent
       context:        # additional context
         - system: "You are a helpful assistant"
       continue: true  # maintain conversation history
@@ -36,61 +34,57 @@ actions:
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `prompt` | string | The prompt to send to the model |
-| `model` | string | Model name to use (overrides default) |
-| `temperature` | number | Sampling temperature (0-2) |
-| `max_tokens` | integer | Maximum tokens in response |
-| `context` | list | Additional context messages in OpenAI format |
-| `continue` | boolean | Continue session history (default: meta.models.continue) |
+| `prompt` | string | The prompt to send to the agent |
+| `agent` | string | Agent name to use (overrides default) |
+| `context` | list | Additional context messages |
+| `continue` | boolean | Continue session history (default: meta.agents.continue) |
 | `save` | string | Variable name to store result (default: `result`) |
 
 ## Details
 
-The `ask` action is sugar syntax for calling the default model. It's equivalent to:
+The `ask` action is sugar syntax for calling the default agent. It's equivalent to:
 
 ```yaml
 # These are equivalent:
 - ask: "Hello"
 
-- mymodel: "Hello"  # if mymodel is the default
+- myagent: "Hello"  # if myagent is the default
 ```
 
-To call a specific named model directly:
+To call a specific named agent directly:
 
 ```yaml
 actions:
-  - mymodel: "Hello"  # calls the 'mymodel' configuration
+  - myagent: "Hello"  # calls the 'myagent' configuration
   - log: "Response: ${result}"
 ```
 
-## Models Configuration
+## Agents Configuration
 
-Models are defined in the `models` section:
+Agents are defined in the `agents` section using LangChain's `createAgent`:
 
 ```yaml
 meta:
-  models:
-    default: mymodel   # default model for 'ask'
+  agents:
+    default: myagent   # default agent for 'ask'
     continue: false    # stateless by default
 
-models:
-  mymodel:
-    model: llama3.2           # actual model identifier
-    temperature: 0.7          # default temperature
-    max_tokens: 1000          # default max tokens
-    top_p: 0.9                # nucleus sampling
-    seed: 42                  # deterministic sampling
-    response_format: text      # "text" or "json"
-    tools:                    # enabled tools
+agents:
+  myagent:
+    model: "ollama:llama3.2"           # model identifier
+    systemPrompt: "You are helpful"    # system prompt
+    responseFormat:                    # optional: Zod schema
+      summary: string
+      confidence: number
+    contextSchema:                     # optional: context schema
+      userId: string
+    tools:                              # optional: tools
       - websearch
-    context:                  # default context (OpenAI format)
-      - system: "You are helpful"
-      - user: "You help with web tasks"
 ```
 
 ## Context Format
 
-Context uses OpenAI message format as a list of one-keyed objects:
+Context uses message format as a list of one-keyed objects:
 
 ```yaml
 context:
@@ -101,48 +95,43 @@ context:
 
 ## Session and Continuity
 
-For multi-turn conversations, use `session` to maintain history:
+For multi-turn conversations, use `continue` to maintain history:
 
 ```yaml
 meta:
-  models:
+  agents:
     continue: true  # enable stateful mode
 
 actions:
   - ask:
       prompt: "My name is Alice"
-      session: user1
   - ask:
-      prompt: "What is my name?"
-      session: user1
-  - ask:
-      prompt: "Thank you"
-      session: user1
+      prompt: "What is my name?"  # Remembers "Alice"
 ```
 
-With `continue: true`, the conversation history is preserved across calls sharing the same session label.
+With `continue: true`, the conversation history is preserved across calls.
 
 ## Examples
 
 ### Basic Usage
 
 ```yaml
-models:
+agents:
   assistant:
-    model: smollm2
+    model: "ollama:smollm2"
 
 actions:
   - ask: "What is 2+2?"
   - log: "Answer: ${result}"
 ```
 
-### With Custom Model
+### With Custom Agent
 
 ```yaml
-models:
+agents:
   coder:
-    model: codellama
-    temperature: 0.3
+    model: "ollama:codellama"
+    systemPrompt: "You are a coding assistant"
 
 actions:
   - coder: "Write a Python function to fibonacci"
@@ -153,14 +142,13 @@ actions:
 
 ```yaml
 meta:
-  models:
+  agents:
     continue: true
 
-models:
+agents:
   chat:
-    model: smollm2
-    context:
-      - system: "You are a helpful coding assistant"
+    model: "ollama:smollm2"
+    systemPrompt: "You are a helpful coding assistant"
 
 actions:
   - chat:
@@ -174,5 +162,5 @@ actions:
 
 ## See Also
 
-- [`models`](models.md) - Full models configuration guide
+- [`agents`](../features/agents.md) - Full agents configuration guide
 - [`log`](log.md) - Log messages for debugging
