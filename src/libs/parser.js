@@ -32,7 +32,7 @@ class Parser {
         vars: {},
         open: null,
         functions: {},
-        models: {},
+        agents: {},
         actions: this.normalizeActions(doc),
         tabs: [],
         subcommands: {},
@@ -41,24 +41,24 @@ class Parser {
     }
 
     this.functions = this.normalizeFunctions(doc.functions || {});
-    const modelsConfig = this.normalizeModelsConfig(doc.models || {});
+    const agentsConfig = this.normalizeAgentsConfig(doc.agents || {});
 
     const script = {
-      meta: doc.meta || {},
+      meta: this.normalizeMeta(doc.meta),
       vars: doc.vars || {},
       open: doc.open || null,
       functions: this.functions,
-      models: modelsConfig,
-      actions: this.normalizeActions(doc.actions || [], modelsConfig),
-      tabs: this.normalizeTabs(doc.tabs || [], modelsConfig),
-      subcommands: this.normalizeSubcommands(doc.subcommands || {}, modelsConfig),
-      routes: this.normalizeRoutes(doc.routes || {}, modelsConfig),
+      agents: agentsConfig,
+      actions: this.normalizeActions(doc.actions || [], agentsConfig),
+      tabs: this.normalizeTabs(doc.tabs || [], agentsConfig),
+      subcommands: this.normalizeSubcommands(doc.subcommands || {}, agentsConfig),
+      routes: this.normalizeRoutes(doc.routes || {}, agentsConfig),
     };
 
     return script;
   }
 
-  normalizeSubcommands(subcommands, modelsConfig = {}) {
+  normalizeSubcommands(subcommands, agentsConfig = {}) {
     if (typeof subcommands !== 'object' || subcommands === null) {
       return {};
     }
@@ -66,21 +66,21 @@ class Parser {
     const result = {};
     for (const [name, subDoc] of Object.entries(subcommands)) {
       result[name] = {
-        meta: subDoc.meta || {},
+        meta: this.normalizeMeta(subDoc.meta),
         vars: subDoc.vars || {},
         open: subDoc.open || null,
-        functions: this.normalizeFunctions(subDoc.functions || {}, modelsConfig),
-        models: this.normalizeModelsConfig(subDoc.models || {}),
-        actions: this.normalizeActions(subDoc.actions || [], modelsConfig),
-        tabs: this.normalizeTabs(subDoc.tabs || [], modelsConfig),
-        subcommands: this.normalizeSubcommands(subDoc.subcommands || {}, modelsConfig),
+        functions: this.normalizeFunctions(subDoc.functions || {}, agentsConfig),
+        agents: this.normalizeAgentsConfig(subDoc.agents || {}),
+        actions: this.normalizeActions(subDoc.actions || [], agentsConfig),
+        tabs: this.normalizeTabs(subDoc.tabs || [], agentsConfig),
+        subcommands: this.normalizeSubcommands(subDoc.subcommands || {}, agentsConfig),
       };
     }
 
     return result;
   }
 
-  normalizeActions(actions, modelsConfig = {}) {
+  normalizeActions(actions, agentsConfig = {}) {
     if (actions && typeof actions === 'object' && Array.isArray(actions._lastArray)) {
       const arr = actions._lastArray.map(item => {
         if (typeof item !== 'string') return item;
@@ -94,23 +94,23 @@ class Parser {
         }
         return s;
       });
-      return arr.map(action => this.normalizeAction(action, modelsConfig));
+      return arr.map(action => this.normalizeAction(action, agentsConfig));
     }
 
     if (!Array.isArray(actions)) {
       if (typeof actions === 'object' && actions !== null) {
         const keys = Object.keys(actions);
         if (keys.length === 1) {
-          return [this.normalizeAction(actions, modelsConfig)];
+          return [this.normalizeAction(actions, agentsConfig)];
         }
       }
       return [];
     }
 
-    return actions.map(action => this.normalizeAction(action, modelsConfig));
+    return actions.map(action => this.normalizeAction(action, agentsConfig));
   }
 
-  normalizeAction(action, modelsConfig = {}) {
+  normalizeAction(action, agentsConfig = {}) {
     if (typeof action === 'string') {
       return { type: 'auto', prompt: action };
     }
@@ -212,23 +212,23 @@ class Parser {
           return { type: 'closeTab' };
 
         case 'if':
-          return this.normalizeIf(value, modelsConfig);
+          return this.normalizeIf(value, agentsConfig);
 
         case 'for':
-          return this.normalizeFor(value, modelsConfig);
+          return this.normalizeFor(value, agentsConfig);
 
         case 'repeat':
-          return this.normalizeRepeat(value, modelsConfig);
+          return this.normalizeRepeat(value, agentsConfig);
 
         case 'parallel':
           const parallelBranches = value.branches || [];
-          return { type: 'parallel', branches: parallelBranches.map(b => ({ actions: this.normalizeActions(b.actions || [], modelsConfig) })) };
+          return { type: 'parallel', branches: parallelBranches.map(b => ({ actions: this.normalizeActions(b.actions || [], agentsConfig) })) };
 
         case 'retry':
-          return this.normalizeRetry(value, modelsConfig);
+          return this.normalizeRetry(value, agentsConfig);
 
         case 'try':
-          return this.normalizeTry(value, modelsConfig);
+          return this.normalizeTry(value, agentsConfig);
 
         case 'extract':
           if (typeof value === 'object') {
@@ -274,7 +274,7 @@ class Parser {
             type: 'fn',
             name: value.name,
             params: value.params || {},
-            actions: this.normalizeActions(value.actions || [], modelsConfig),
+            actions: this.normalizeActions(value.actions || [], agentsConfig),
           };
 
         case 'js':
@@ -304,7 +304,7 @@ class Parser {
           };
 
         case 'ask':
-          return this.normalizeAskAction(value, modelsConfig);
+          return this.normalizeAskAction(value, agentsConfig);
 
         case 'auto':
           if (typeof value === 'string') {
@@ -320,8 +320,8 @@ class Parser {
               args: typeof value === 'object' && value !== null ? value : {},
             };
           }
-          if (modelsConfig && modelsConfig[type]) {
-            return this.normalizeModelAction(type, value, modelsConfig);
+          if (agentsConfig && agentsConfig[type]) {
+            return this.normalizeAgentAction(type, value, agentsConfig);
           }
           return { type, value };
       }
@@ -329,7 +329,7 @@ class Parser {
     return action;
   }
 
-  normalizeAskAction(value, modelsConfig) {
+  normalizeAskAction(value, agentsConfig) {
     if (typeof value === 'string') {
       return { type: 'ask', prompt: value };
     }
@@ -337,9 +337,9 @@ class Parser {
       return {
         type: 'ask',
         prompt: value.prompt || '',
-        model: value.model || null,
+        agent: value.agent || null,
         temperature: value.temperature,
-        max_tokens: value.max_tokens,
+        maxTokens: value.maxTokens,
         context: this.normalizeContext(value.context),
         continue: value.continue,
         save: value.save || 'result',
@@ -348,27 +348,23 @@ class Parser {
     return { type: 'ask', prompt: String(value) };
   }
 
-  normalizeModelAction(modelName, value, modelsConfig) {
+  normalizeAgentAction(agentName, value, agentsConfig) {
     if (typeof value === 'string') {
-      return { type: 'model', name: modelName, prompt: value };
+      return { type: 'agent', name: agentName, prompt: value };
     }
     if (typeof value === 'object') {
       return {
-        type: 'model',
-        name: modelName,
+        type: 'agent',
+        name: agentName,
         prompt: value.prompt || '',
-        model: value.model || null,
-        temperature: value.temperature,
-        max_tokens: value.max_tokens,
-        context: this.normalizeContext(value.context),
         continue: value.continue,
         save: value.save || 'result',
       };
     }
-    return { type: 'model', name: modelName, prompt: String(value) };
+    return { type: 'agent', name: agentName, prompt: String(value) };
   }
 
-  normalizeIf(value, modelsConfig = {}) {
+  normalizeIf(value, agentsConfig = {}) {
     const result = { type: 'if' };
     
     if (value.selector) {
@@ -378,13 +374,13 @@ class Parser {
       result.condition = value.condition;
     }
     
-    result.then = this.normalizeActions(value.then || [], modelsConfig);
-    result.else = this.normalizeActions(value.else || [], modelsConfig);
+    result.then = this.normalizeActions(value.then || [], agentsConfig);
+    result.else = this.normalizeActions(value.else || [], agentsConfig);
     
     return result;
   }
 
-  normalizeFor(value, modelsConfig = {}) {
+  normalizeFor(value, agentsConfig = {}) {
     const result = { type: 'for', as: value.as || 'item' };
     
     if (value.items) {
@@ -400,12 +396,12 @@ class Parser {
       result.continue = typeof value.continue === 'object' ? value.continue : { condition: value.continue };
     }
     
-    result.actions = this.normalizeActions(value.actions || [], modelsConfig);
+    result.actions = this.normalizeActions(value.actions || [], agentsConfig);
     
     return result;
   }
 
-  normalizeRepeat(value, modelsConfig = {}) {
+  normalizeRepeat(value, agentsConfig = {}) {
     const result = { type: 'repeat' };
     
     if (typeof value === 'number') {
@@ -414,32 +410,32 @@ class Parser {
     } else {
       result.times = value.times || 1;
       result.delay = value.delay;
-      result.actions = this.normalizeActions(value.actions || [], modelsConfig);
+      result.actions = this.normalizeActions(value.actions || [], agentsConfig);
     }
     
     return result;
   }
 
-  normalizeRetry(value, modelsConfig = {}) {
+  normalizeRetry(value, agentsConfig = {}) {
     return {
       type: 'retry',
       times: value.times || 3,
       delay: value.delay || 1000,
       backoff: value.backoff,
-      action: this.normalizeActions(value.action || [], modelsConfig),
+      action: this.normalizeActions(value.action || [], agentsConfig),
     };
   }
 
-  normalizeTry(value, modelsConfig = {}) {
+  normalizeTry(value, agentsConfig = {}) {
     return {
       type: 'try',
       timeout: value.timeout,
-      action: this.normalizeActions(value.action || [], modelsConfig),
-      catch: this.normalizeActions(value.catch || [], modelsConfig),
+      action: this.normalizeActions(value.action || [], agentsConfig),
+      catch: this.normalizeActions(value.catch || [], agentsConfig),
     };
   }
 
-  normalizeFunctions(functions, modelsConfig = {}) {
+  normalizeFunctions(functions, agentsConfig = {}) {
     const result = {};
     if (typeof functions !== 'object' || functions === null) {
       return result;
@@ -451,20 +447,20 @@ class Parser {
       }
       result[name] = {
         params: def.params || {},
-        actions: this.normalizeActions(def.actions || [], modelsConfig),
+        actions: this.normalizeActions(def.actions || [], agentsConfig),
       };
     }
 
     return result;
   }
 
-  normalizeModelsConfig(models) {
-    if (typeof models !== 'object' || models === null) {
+  normalizeAgentsConfig(agents) {
+    if (typeof agents !== 'object' || agents === null) {
       return {};
     }
 
     const result = {};
-    for (const [name, config] of Object.entries(models)) {
+    for (const [name, config] of Object.entries(agents)) {
       if (typeof config === 'string') {
         result[name] = { model: config };
         continue;
@@ -474,20 +470,81 @@ class Parser {
       }
       result[name] = {
         model: config.model || name,
-        provider: config.provider || 'docker',
-        api_key: config.api_key,
-        base_url: config.base_url,
-        temperature: config.temperature,
-        max_tokens: config.max_tokens,
-        top_p: config.top_p,
-        seed: config.seed,
-        response_format: config.response_format || 'text',
-        tools: config.tools || [],
-        context: this.normalizeContext(config.context),
+        systemPrompt: config.systemPrompt || null,
+        responseFormat: this.normalizeSchema(config.responseFormat),
+        contextSchema: this.normalizeSchema(config.contextSchema),
+        middleware: this.normalizeMiddleware(config.middleware || []),
+        tools: this.normalizeTools(config.tools || []),
       };
     }
 
     return result;
+  }
+
+  normalizeSchema(schema) {
+    if (!schema || typeof schema !== 'object') {
+      return null;
+    }
+    const properties = {};
+    for (const [key, value] of Object.entries(schema)) {
+      if (typeof value === 'string') {
+        properties[key] = { type: value };
+      } else if (typeof value === 'object' && value !== null) {
+        properties[key] = {
+          type: value.type || 'string',
+          description: value.description || null,
+        };
+      }
+    }
+    return Object.keys(properties).length > 0 ? properties : null;
+  }
+
+  normalizeMiddleware(middleware) {
+    if (!Array.isArray(middleware)) {
+      return [];
+    }
+    return middleware.map(m => {
+      if (typeof m === 'string') {
+        return { name: m, config: null };
+      }
+      if (typeof m === 'object' && m !== null) {
+        const entries = Object.entries(m);
+        if (entries.length === 1) {
+          const [name, config] = entries[0];
+          return { name, config: config || null };
+        }
+      }
+      return null;
+    }).filter(Boolean);
+  }
+
+  normalizeTools(tools) {
+    if (!Array.isArray(tools)) {
+      return [];
+    }
+    return tools.map(tool => {
+      if (typeof tool === 'string') {
+        return { type: 'builtin', name: tool };
+      }
+      if (typeof tool === 'object' && tool !== null) {
+        const keys = Object.keys(tool);
+        if (keys.length === 1) {
+          const toolName = keys[0];
+          const toolConfig = tool[toolName];
+          if (typeof toolConfig === 'object' && toolConfig !== null) {
+            const hasActions = Array.isArray(toolConfig.actions) && toolConfig.actions.length > 0;
+            return {
+              type: hasActions ? 'builtin_with_actions' : 'function',
+              name: toolName,
+              description: toolConfig.description || null,
+              schema: this.normalizeSchema(toolConfig.schema),
+              actions: hasActions ? this.normalizeActions(toolConfig.actions) : null,
+            };
+          }
+        }
+      }
+      return null;
+    }).filter(Boolean);
   }
 
   normalizeContext(context) {
@@ -505,18 +562,18 @@ class Parser {
     }).filter(Boolean);
   }
 
-  normalizeTabs(tabs, modelsConfig = {}) {
+  normalizeTabs(tabs, agentsConfig = {}) {
     if (!Array.isArray(tabs)) {
       return [];
     }
 
     return tabs.map(tab => ({
       open: tab.open || tab.url,
-      actions: this.normalizeActions(tab.actions || [], modelsConfig),
+      actions: this.normalizeActions(tab.actions || [], agentsConfig),
     }));
   }
 
-  normalizeRoutes(routes, modelsConfig = {}) {
+  normalizeRoutes(routes, agentsConfig = {}) {
     if (typeof routes !== 'object' || routes === null || Array.isArray(routes)) {
       return {};
     }
@@ -537,7 +594,7 @@ class Parser {
           result[`${normalizedPath}:${method}`] = {
             method,
             path: normalizedPath,
-            actions: this.normalizeActions(actions.flat(), modelsConfig),
+            actions: this.normalizeActions(actions.flat(), agentsConfig),
             timeout: def.timeout || null,
             headers: def.headers || null,
           };
@@ -545,6 +602,23 @@ class Parser {
       }
     }
 
+    return result;
+  }
+
+  normalizeMeta(meta) {
+    if (!meta || typeof meta !== 'object') {
+      return {};
+    }
+    const result = { ...meta };
+    if (meta.agents !== undefined) {
+      result.agents = meta.agents;
+    } else if (meta.models !== undefined) {
+      result.agents = meta.models;
+      delete result.models;
+    }
+    if (meta.env && typeof meta.env === 'object') {
+      result.env = meta.env;
+    }
     return result;
   }
 }
