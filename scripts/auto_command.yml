@@ -1,0 +1,17 @@
+meta:
+  browser: true
+
+actions:
+  # - open g1.com.br and print the title of the first news
+  - open: https://g1.com.br
+  - extract:
+      selector: h2
+      save: body
+  - log: ${body}
+  - wait: 5000
+
+# agents:
+#   mymodel: 
+#     model: "ollama:smollm2"
+
+
